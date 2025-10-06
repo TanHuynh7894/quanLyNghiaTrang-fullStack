@@ -5,7 +5,11 @@ import type { Feature, FeatureCollection, Geometry } from 'geojson';
 import { OEntity } from './entities/o.entity';
 import { Hang } from '../hang/entities/hang.entity';
 import { Khu } from '../khu/entities/khu.entity';
-import { LookupService } from '../../helpper/lookup/lookup.service';
+import {
+  LookupService,
+  MoPhanBase,
+  MoPhanBundle,
+} from '../../helpper/lookup/lookup.service';
 
 type ORaw = {
   id: string;
@@ -25,8 +29,23 @@ export class OService {
     private readonly lookup: LookupService,
   ) {}
 
-  private mapORawToFeature(row: ORaw): Feature {
+  private async mapORawToFeature(row: ORaw): Promise<Feature> {
     const geometry = JSON.parse(row.geojson) as Geometry;
+
+    let extras: MoPhanBundle | null = null;
+    if (row.dia_chi) {
+      const base: MoPhanBase | null = await this.lookup.getMoPhanBaseByDiaChi(
+        row.dia_chi,
+      );
+      if (base) {
+        const [lich_su, hinh_anh] = await Promise.all([
+          this.lookup.getLichSuByDiaChi(row.dia_chi),
+          this.lookup.getHinhAnhByDiaChi(row.dia_chi),
+        ]);
+        extras = { mo_phan: base, lich_su, hinh_anh };
+      }
+    }
+
     return {
       type: 'Feature',
       geometry,
@@ -38,6 +57,9 @@ export class OService {
         ma_khu: row.ma_khu,
         ten_khu: row.ten_khu,
         dia_chi: row.dia_chi,
+        mo_phan: extras?.mo_phan ?? null,
+        lich_su_mo_phan: extras?.lich_su ?? [],
+        hinh_anh_mo_phan: extras?.hinh_anh ?? [],
       },
     };
   }
@@ -68,10 +90,10 @@ export class OService {
       .orderBy('o.ten_o', 'ASC')
       .getRawMany<ORaw>();
 
-    return {
-      type: 'FeatureCollection',
-      features: rows.map((r) => this.mapORawToFeature(r)),
-    };
+    const features = await Promise.all(
+      rows.map((r) => this.mapORawToFeature(r)),
+    );
+    return { type: 'FeatureCollection', features };
   }
 
   async findOneByTen(
@@ -111,6 +133,7 @@ export class OService {
   }
 
   async findOneByDiaChi(dia_chi: string): Promise<Feature> {
+    console.log('findOneByDiaChi');
     const row = await this.oRepo
       .createQueryBuilder('o')
       .leftJoin(Hang, 'h', 'h.ma_hang = o.ma_hang AND h.ma_khu = o.ma_khu')
@@ -126,6 +149,8 @@ export class OService {
       .addSelect('k.ten_khu', 'ten_khu')
       .addSelect('ST_AsGeoJSON(o.toa_do, 6)', 'geojson')
       .where('o.dia_chi ILIKE :dia_chi', { dia_chi: dia_chi.trim() })
+      .orderBy("regexp_replace(m.ten_o, '[^0-9]+', '', 'g')::int", 'ASC')
+      .addOrderBy('m.ten_o', 'ASC')
       .getRawOne<ORaw>();
 
     if (!row) {

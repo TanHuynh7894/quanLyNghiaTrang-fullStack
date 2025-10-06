@@ -14,6 +14,7 @@ export class OController {
     @Query('ten_o') ten_o?: string,
   ): Promise<Feature | FeatureCollection> {
     if (dia_chi?.trim()) {
+      console.log('dia_chi_ne', dia_chi);
       return this.oService.findOneByDiaChi(dia_chi.trim());
     }
 
