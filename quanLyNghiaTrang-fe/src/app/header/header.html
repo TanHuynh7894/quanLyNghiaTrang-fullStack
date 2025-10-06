@@ -1,0 +1,46 @@
+<header class="app-header">
+  <div class="header-left">
+    <button (click)="toggleMenu()" class="menu-toggle-button" [class.close-style]="isMenuOpen">
+      @if (!isMenuOpen) {
+        <span>☰</span>
+      } @else {
+        <span>&times;</span>
+      }
+    </button>
+  </div>
+
+  <div class="gmaps-search" role="search">
+    <input id="map-search" type="text" placeholder="khu-hang-o" autocomplete="off" aria-label="Search places" />
+    <button class="icon-btn" aria-label="Search">
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M11 19a8 8 0 1 1 5.292-14.02A8 8 0 0 1 11 19z" fill="none" stroke="currentColor" stroke-width="2" />
+        <path d="M21 21l-4.3-4.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+      </svg>
+    </button>
+  </div>
+
+  <div class="gmaps-options">
+  <!-- KHU -->
+  <select [(ngModel)]="selectedKhu" (change)="onKhuChange()" class="dropdown">
+    <option value="" disabled selected>Chọn khu</option>
+    <option *ngFor="let k of khus" [value]="k">{{ k }}</option>
+  </select>
+
+  <!-- HÀNG -->
+  <select [(ngModel)]="selectedHang" (change)="onHangChange()" class="dropdown" [disabled]="!selectedKhu">
+    <option value="" disabled selected>Chọn hàng</option>
+    <option *ngFor="let h of hangs" [value]="h">{{ h }}</option>
+  </select>
+
+  <!-- Ô -->
+  <select [(ngModel)]="selectedO" (change)="onOChange()" class="dropdown" [disabled]="!selectedHang">
+    <option value="" disabled selected>Chọn ô</option>
+    <option *ngFor="let o of os" [value]="o">{{ o }}</option>
+  </select>
+</div>
+
+
+  <div class="header-right">
+    <div class="project-title">{{ projectName }}</div>
+  </div>
+</header>
