@@ -128,19 +128,19 @@ export class LookupService {
   }
 
   // Hàm tổng hợp (gọi 3 cái trên)
-  async getMoPhanBundleByDiaChi(dia_chi: string): Promise<MoPhanBundle | null> {
-    const base = await this.getMoPhanBaseByDiaChi(dia_chi);
-    if (!base) return null;
+  // async getMoPhanBundleByDiaChi(dia_chi: string): Promise<MoPhanBundle | null> {
+  //   const base = await this.getMoPhanBaseByDiaChi(dia_chi);
+  //   if (!base) return null;
 
-    const [lich_su, hinh_anh] = await Promise.all([
-      this.getLichSuByDiaChi(dia_chi),
-      this.getHinhAnhByDiaChi(dia_chi),
-    ]);
+  //   const [lich_su, hinh_anh] = await Promise.all([
+  //     this.getLichSuByDiaChi(dia_chi),
+  //     this.getHinhAnhByDiaChi(dia_chi),
+  //   ]);
 
-    return {
-      mo_phan: base,
-      lich_su,
-      hinh_anh,
-    };
-  }
+  //   return {
+  //     mo_phan: base,
+  //     lich_su,
+  //     hinh_anh,
+  //   };
+  // }
 }

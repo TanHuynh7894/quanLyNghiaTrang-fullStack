@@ -1,74 +1,332 @@
-.map-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
+/* nền map full */
+html,
+body {
   height: 100%;
 }
+
+:host {
+  display: block;
+  height: 100vh;
+}
+
+.map-container {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
 .map-app {
   width: 100%;
   height: 100%;
 }
 
-.khu-display {
+/* overlay glass */
+.glass-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  overflow: auto;
+  padding: 24px 16px;
+  background: rgba(143, 137, 112, 0.374);
+  backdrop-filter: blur(8px) saturate(1.05);
+}
+
+.glass-close {
+  position: fixed;
+  top: 18px;
+  right: 24px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  font-size: 40px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.glass-modal {
+  width: min(1120px, 96vw);
+  margin: 28px auto;
+  background: transparent;
+}
+
+.glass-title {
+  text-align: center;
+  font-size: 44px;
+  font-weight: 800;
+  color: #fff;
+  margin: 6px 0 14px;
+  letter-spacing: .5px;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, .45);
+}
+
+.glass-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 1.35fr;
+  gap: 18px;
+}
+
+@media (max-width: 900px) {
+  .glass-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* pills */
+.pill-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pill {
+  border-radius: 18px;
+  padding: 14px 16px;
+  color: whitesmoke;
+  background: linear-gradient(180deg, rgba(158, 118, 54, .35), rgba(158, 118, 54, .25));
+  justify-content: center;
+  /* căn giữa theo chiều dọc */
+  align-items: center;
+
+}
+
+.pill-wide {
+  grid-column: span 2;
+}
+
+.pill-label {
+  font-size: 13px;
+  text-align: center;
+}
+
+.pill-value {
+  font-size: 25px;
+  text-align: center;
+  text-shadow:
+    0 1px 1px rgba(255, 255, 255, 0.4),
+    /* ánh sáng trên */
+    0 2px 4px rgba(0, 0, 0, 0.45);
+  /* bóng dưới */
+}
+
+
+/* image card */
+.image-card {
+  background: transparent;
+}
+
+.image-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.image-frame img {
+  width: 100%;
+  height: 250px;
+  object-fit: cover;
+  display: block;
+}
+
+.image-placeholder {
+  height: 330px;
+  display: grid;
+  place-items: center;
+  color: #777;
+  background: #eee;
+  border-radius: 12px;
+}
+
+.nav {
   position: absolute;
-  bottom: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .25);
+  cursor: pointer;
+  font-size: 40px;
+  line-height: 38px;
+  color: white;
+}
+
+.nav.left {
+  left: 10px;
+}
+
+.nav.right {
   right: 10px;
-  background-color: rgba(255, 255, 255, 0.8);
-  padding: 5px 10px;
-  border-radius: 3px;
-  font-size: 12px;
-  font-family: monospace;
-  z-index: 1;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-:host ::ng-deep .maplibregl-ctrl-attrib {
-  display: none !important;
+/* CTA + mô tả */
+.cta {
+  width: 100%;
+  margin: 14px 0 8px;
+  padding: 14px 18px;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.93);
+  opacity: 0.8;
+  color: linear-gradient(180deg, rgba(158, 118, 54, .35), rgba(158, 118, 54, .25));
+  font-weight: 900;
+  letter-spacing: .8px;
 }
 
-.detail-overlay {
-  position: absolute;
-  top: 60px;
-  right: 15px;
-  width: 280px;
-  background-color: rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  z-index: 10;
-  padding: 15px;
-  font-family: Arial, sans-serif;
-  color: #333;
-  line-height: 1.5;
-  max-height: calc(100% - 30px); /* Thêm giới hạn chiều cao */
-  overflow-y: auto; /* Thêm thanh cuộn nếu nội dung quá dài */
+.desc-card {
+  background: rgba(255, 255, 255, .93);
+  border: 1px solid rgba(0, 0, 0, .06);
+  border-radius: 14px;
+  padding: 16px;
+  margin-top: 10px;
 }
 
-.detail-content strong {
-  color: #0056b3;
+.desc-title {
+  margin: 0 0 6px;
+  font-size: 28px;
+  color: #6e5a2a;
+}
+
+.desc-text {
+  color: #444;
+  margin: 0 0 8px;
+}
+
+.history h3 {
+  margin: 10px 0 6px;
+}
+
+.history .muted {
+  color: #666;
+  font-size: 13px;
+}
+
+:host(.overlay-visible) .map-container {
+  z-index: 1100; /* Cao hơn z-index của header (1002) */
+}
+:root {
+  --section-title-color: #6e5a2a; /* Màu cho tiêu đề các phần */
+  --info-label-color: #7f8c8d; /* Màu cho nhãn nhỏ */
+  --info-value-color: #2c3e50; /* Màu cho giá trị chính */
+  --border-light: #ecf0f1;
+  --icon-bg-color: #f4f6f8;
+}
+
+/* Thay thế hoàn toàn các quy tắc cũ của .desc-card và các phần tử con */
+.detail-section {
+  background: rgba(255, 255, 255, 0.93);
+  opacity: 0.8;
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  padding: 20px 24px;
+  margin-top: 15px; /* Khoảng cách giữa các section hoặc với phần trên */
+}
+
+.section-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--section-title-color);
+  margin: 0 0 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.info-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Chia cột tự động */
+  gap: 25px;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.info-icon {
+  font-size: 22px;
+  width: 45px;
+  height: 45px;
+  min-width: 45px; /* Đảm bảo icon không bị co lại */
+  background: var(--icon-bg-color);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--section-title-color); /* Màu icon */
+}
+
+.info-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.info-label {
+  font-size: 13px;
+  color: var(--info-label-color);
+  margin-bottom: 2px;
+}
+
+.info-content p {
   font-size: 16px;
-  display: block; /* Đảm bảo strong chiếm một dòng */
-  margin-bottom: 5px;
+  font-weight: 600;
+  color: var(--info-value-color);
+  margin: 0;
 }
 
-.detail-content p {
-  margin: 8px 0 0;
-  font-size: 14px;
+/* ------------------------------------------------------------------ */
+/* CSS cho Timeline (Phần này đã gửi lần trước, bạn chỉ cần đảm bảo có đủ) */
+/* ------------------------------------------------------------------ */
+.timeline {
+  list-style-type: none;
+  padding-left: 20px;
+  position: relative;
 }
 
-.close-button {
+.timeline::before {
+  content: '';
   position: absolute;
   top: 10px;
-  right: 10px;
-  background: none;
-  border: 1px white; /* Thêm đường viền */
-  border-radius: 4px; /* Bo tròn góc */
-  font-size: 30px; /* Giảm kích thước font một chút */
-  cursor: pointer;
-  color: black;
-  width: 24px; /* Thêm chiều rộng */
-  height: 24px; /* Thêm chiều cao */
-  line-height: 20px; /* Căn giữa ký tự 'x' */
-  text-align: center; /* Căn giữa ký tự 'x' */
-  padding: 0;
+  left: 0;
+  bottom: 10px;
+  width: 2px;
+  background-color: var(--border-light);
+}
+
+.timeline-item {
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -28px;
+  top: 8px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: white;
+  border: 3px solid var(--section-title-color); /* Đồng bộ màu với tiêu đề */
+}
+
+.timeline-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--info-label-color);
+  margin-bottom: 4px;
+}
+
+.timeline-content strong {
+  font-weight: 600;
+  color: var(--info-value-color);
+}
+
+.timeline-content p {
+  font-size: 14px;
+  color: var(--info-label-color);
+  margin: 4px 0 0;
 }

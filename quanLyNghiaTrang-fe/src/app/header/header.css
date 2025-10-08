@@ -1,8 +1,7 @@
 /* Cấu trúc header chính */
 .app-header {
-  position: fixed;
-  top: 0;
-  left: 0;
+  position: absolute ;
+  margin-top: 5px;
   width: 100%;
   display: flex;
   justify-content: space-between;
@@ -52,9 +51,9 @@
   z-index: 2001;
 }
 
-/* Container: place it fixed over the map */
+/* Container: place it  over the map */
 .gmaps-search{
-  position: fixed;            /* đổi thành absolute nếu cần trong 1 wrapper */
+  position: absolute;            /* đổi thành absolute nếu cần trong 1 wrapper */
   top: 16px; left: 80px;
   display: flex; align-items: center; gap: 10px;
   padding: 5px 5px 5px 5px;
@@ -126,7 +125,7 @@
 }
 
 .gmaps-options {
-  position: fixed;
+  position: absolute;
   top: 22px;
   left: 450px;
   display: flex;

@@ -1,9 +1,12 @@
-import { Component, AfterViewInit, OnDestroy, ElementRef, ViewChild, inject, NgZone, OnInit, Input, OnChanges, SimpleChanges, Output, EventEmitter } from '@angular/core';
+import { Component, AfterViewInit, OnDestroy, ElementRef, ViewChild, inject, NgZone, OnInit, Input, OnChanges, SimpleChanges, Output, EventEmitter, ChangeDetectorRef, HostBinding } from '@angular/core';
 import { CommonModule } from '@angular/common';
 // Cập nhật: Import thêm Popup và các type cần thiết
 import { Map, LngLatBounds, MapGeoJSONFeature, Popup } from 'maplibre-gl';
 import { MapDataService } from '../map-data';
 import { Feature, GeoJsonProperties } from 'geojson';
+import { Router } from '@angular/router';
+import { environment } from '../../environments/environment';
+
 
 // Enum để quản lý trạng thái hiển thị của bản đồ
 export enum MapViewLevel {
@@ -26,14 +29,21 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   @Input() selectedKhu?: string;
   @Input() selectedHang?: string;
   @Input() selectedO?: string;
-  @Output() khuPicked  = new EventEmitter<string>();
-  @Output() hangPicked = new EventEmitter<string>();
-  @Output() oPicked    = new EventEmitter<string>();
 
+  @Output() khuPicked = new EventEmitter<string>();
+  @Output() hangPicked = new EventEmitter<string>();
+  @Output() oPicked = new EventEmitter<string>();
+  private router = inject(Router);
   private map?: Map;
   private mapDataService = inject(MapDataService);
   private zone = inject(NgZone);
   private mapReady = false;
+  public mediaBaseUrl = environment.apiMedia + '/';
+  public galleryIndex = 0;
+  private galleryTimer?: any;
+  private galleryPaused = false;
+  private cdr = inject(ChangeDetectorRef);
+
   // @Input() mapMode: string = 'khu';
 
   // Mới: Thêm một instance Popup để tái sử dụng cho hiệu ứng hover
@@ -50,8 +60,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   // private selectedKhu: string | null = null;
   // private selectedHang: string | null = null;
   private hoveredFeature: { id: string | number; source: string } | null = null;
-  public detailHtml: string | null = null;
-
+  public detailHtml: any | null = null;
+  @HostBinding('class.overlay-visible') 
+  get isOverlayVisible() {
+    return !!this.detailHtml; 
+  }
   ngAfterViewInit() {
     const apiKey = '3suk2GO5O2JgkhGmruDP'; // Lưu ý: Nên đưa key này vào environment files
     const initialState = { lng: 106.64731872829728, lat: 11.180320653754398, zoom: 17.5 };
@@ -73,43 +86,43 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-  if (!this.mapReady) return;
+    if (!this.mapReady) return;
 
-  // Bật/tắt layer theo mode
-  if (changes['mapMode'] && !changes['mapMode'].firstChange) {
-    this.updateLayersBasedOnMode(this.mapMode);
+    // Bật/tắt layer theo mode
+    if (changes['mapMode'] && !changes['mapMode'].firstChange) {
+      this.updateLayersBasedOnMode(this.mapMode);
+    }
+
+    // ---- KHI CHỌN KHU ----
+    if (changes['selectedKhu'] && this.selectedKhu) {
+      this.updateLayersBasedOnMode('hang');
+      this.loadHangByKhu(this.selectedKhu);
+
+      // zoom vào Khu đã chọn bằng cách tìm trong 'khu-source'
+      const khuFeat = (this.map?.querySourceFeatures('khu-source') as any[] || [])
+        .find(f => String(f.properties?.['ten_khu']) === String(this.selectedKhu));
+      if (khuFeat) this.zoomToFeature(khuFeat as unknown as Feature);
+    }
+
+    // ---- KHI CHỌN HÀNG ----
+    if (changes['selectedHang'] && this.selectedKhu && this.selectedHang) {
+      this.updateLayersBasedOnMode('o');
+      this.loadOByHang(this.selectedKhu, this.selectedHang);
+
+      // zoom vào Hàng đã chọn trong 'hang-source'
+      const hangFeat = (this.map?.querySourceFeatures('hang-source') as any[] || [])
+        .find(f => String(f.properties?.['ten_hang']) === String(this.selectedHang));
+      if (hangFeat) this.zoomToFeature(hangFeat as unknown as Feature);
+    }
+
+    // ---- KHI CHỌN Ô ----
+    if (changes['selectedO'] && this.selectedO) {
+      // Bạn bảo tên trường của Ô là 'ten_o'
+      const oFeat = (this.map?.querySourceFeatures('o-source') as any[] || [])
+        .find(f => String(f.properties?.['ten_o']) === String(this.selectedO));
+      if (oFeat) this.zoomToFeature(oFeat as unknown as Feature);
+    }
   }
-
-  // ---- KHI CHỌN KHU ----
-  if (changes['selectedKhu'] && this.selectedKhu) {
-    this.updateLayersBasedOnMode('hang');
-    this.loadHangByKhu(this.selectedKhu);
-
-    // zoom vào Khu đã chọn bằng cách tìm trong 'khu-source'
-    const khuFeat = (this.map?.querySourceFeatures('khu-source') as any[] || [])
-      .find(f => String(f.properties?.['ten_khu']) === String(this.selectedKhu));
-    if (khuFeat) this.zoomToFeature(khuFeat as unknown as Feature);
-  }
-
-  // ---- KHI CHỌN HÀNG ----
-  if (changes['selectedHang'] && this.selectedKhu && this.selectedHang) {
-    this.updateLayersBasedOnMode('o');
-    this.loadOByHang(this.selectedKhu, this.selectedHang);
-
-    // zoom vào Hàng đã chọn trong 'hang-source'
-    const hangFeat = (this.map?.querySourceFeatures('hang-source') as any[] || [])
-      .find(f => String(f.properties?.['ten_hang']) === String(this.selectedHang));
-    if (hangFeat) this.zoomToFeature(hangFeat as unknown as Feature);
-  }
-
-  // ---- KHI CHỌN Ô ----
-  if (changes['selectedO'] && this.selectedO) {
-    // Bạn bảo tên trường của Ô là 'ten_o'
-    const oFeat = (this.map?.querySourceFeatures('o-source') as any[] || [])
-      .find(f => String(f.properties?.['ten_o']) === String(this.selectedO));
-    if (oFeat) this.zoomToFeature(oFeat as unknown as Feature);
-  }
-}
 
   private initializeLayers(): void {
     if (!this.map) return;
@@ -149,9 +162,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       if (e.features?.length) {
         const feature = e.features[0];
         const ten_khu = feature.properties?.['ten_khu'];
-        if (ten_khu) { 
-          this.zoomToFeature(feature); 
-          this.loadHangByKhu(ten_khu); 
+        if (ten_khu) {
+          this.zoomToFeature(feature);
+          this.loadHangByKhu(ten_khu);
           this.khuPicked.emit(String(ten_khu));
         }
       }
@@ -161,9 +174,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       if (e.features?.length) {
         const feature = e.features[0];
         const ten_hang = feature.properties?.['ten_hang'];
-        if (ten_hang && this.selectedKhu) { 
-          this.zoomToFeature(feature); 
-          this.loadOByHang(this.selectedKhu, ten_hang); 
+        if (ten_hang && this.selectedKhu) {
+          this.zoomToFeature(feature);
+          this.loadOByHang(this.selectedKhu, ten_hang);
           this.hangPicked.emit(String(ten_hang));
         }
       }
@@ -171,16 +184,38 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     // Click vào Ô chỉ để zoom
     this.map.on('click', 'o-fill', (e) => {
+      console.log('ĐÃ CLICK VÀO MỘT Ô!', e.features?.[0]?.properties);
       if (e.features?.length) {
         const feature = e.features[0];
         const ten_o = feature.properties?.['ten_o'];
+        const props = (feature.properties ?? {}) as Record<string, unknown>;
         this.zoomToFeature(feature);
-        if (ten_o) this.oPicked.emit(String(ten_o)); 
-        const description = feature.properties?.['description'];
-        this.zone.run(() => {
-          this.detailHtml = description || '<p>Không có thông tin chi tiết.</p>';
-        });
-      }
+        if (ten_o) this.oPicked.emit(String(ten_o));
+        const parse = (v: unknown) => {
+          if (typeof v === 'string') {
+            try { return JSON.parse(v); } catch { return v; }
+          }
+          return v;
+        };
+
+        // Cập nhật panel chi tiết: lấy toàn bộ properties cần thiết
+        const parsed = {
+          id: props['id'],
+          ten_o: props['ten_o'],
+          ten_hang: props['ten_hang'],
+          ten_khu: props['ten_khu'],
+          dia_chi: props['dia_chi'],
+          mo_phan: parse(props['mo_phan']),
+          lich_su_mo_phan: (parse(props['lich_su_mo_phan']) as any[]) ?? [],
+          hinh_anh_mo_phan: (parse(props['hinh_anh_mo_phan']) as any[]) ?? [],
+        };
+
+        // GỌI showDetail ĐỂ RESET INDEX + BẬT AUTO-SLIDE
+        console.log('ĐANG CHẠY BÊN TRONG ZONE!');
+        console.log('Dữ liệu được gán:', parsed);
+        this.zone.run(() => this.showDetail(parsed));
+      };
+
     });
 
     // Tối ưu: Lắng nghe sự kiện MOUSEMOVE và MOUSELEAVE trên tất cả các layer tương tác
@@ -298,11 +333,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.zone.run(() => {
       this.currentView =
         mode === 'khu' ? MapViewLevel.Khu :
-        mode === 'hang' ? MapViewLevel.Hang : MapViewLevel.O;
+          mode === 'hang' ? MapViewLevel.Hang : MapViewLevel.O;
     });
   }
 
-   private applySelectionsFromInputs(): void {
+  private applySelectionsFromInputs(): void {
     this.updateLayersBasedOnMode(this.mapMode);
 
     if (this.selectedKhu) {
@@ -331,12 +366,43 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  public closeDetailOverlay(): void {
-    this.detailHtml = null;
-  }
-
   ngOnDestroy() {
     this.map?.remove();
+  }
+
+  public nextImg() {
+    const n = this.detailHtml?.hinh_anh_mo_phan?.length || 0;
+    if (!n) return;
+    this.galleryIndex = (this.galleryIndex + 1) % n;
+  }
+  public prevImg() {
+    const n = this.detailHtml?.hinh_anh_mo_phan?.length || 0;
+    if (!n) return;
+    this.galleryIndex = (this.galleryIndex - 1 + n) % n;
+  }
+  public goImg(i: number) { this.galleryIndex = i; }
+
+  private startAuto() {
+    this.clearAuto();
+    this.galleryTimer = setInterval(() => {
+      if (!this.galleryPaused) this.nextImg();
+    }, 3500);
+  }
+  private clearAuto() { if (this.galleryTimer) { clearInterval(this.galleryTimer); this.galleryTimer = undefined; } }
+  public pauseAuto() { this.galleryPaused = true; }
+  public resumeAuto() { this.galleryPaused = false; }
+
+  public closeDetailOverlay(): void {
+    this.detailHtml = null;
+    this.clearAuto();
+  }
+
+  // gọi khi set detailHtml (sau click ô)
+  private showDetail(d: any) {
+    this.detailHtml = d;
+    this.galleryIndex = 0;
+    this.startAuto();
+    this.cdr.detectChanges();
   }
 }
 

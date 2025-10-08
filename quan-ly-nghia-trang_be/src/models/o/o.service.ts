@@ -39,10 +39,11 @@ export class OService {
       );
       if (base) {
         const [lich_su, hinh_anh] = await Promise.all([
-          this.lookup.getLichSuByDiaChi(row.dia_chi),
-          this.lookup.getHinhAnhByDiaChi(row.dia_chi),
+          this.lookup.getLichSuByDiaChi(row.dia_chi.trim()),
+          this.lookup.getHinhAnhByDiaChi(row.dia_chi.trim()),
         ]);
         extras = { mo_phan: base, lich_su, hinh_anh };
+        console.log('FE = ', JSON.stringify(extras));
       }
     }
 
@@ -149,14 +150,13 @@ export class OService {
       .addSelect('k.ten_khu', 'ten_khu')
       .addSelect('ST_AsGeoJSON(o.toa_do, 6)', 'geojson')
       .where('o.dia_chi ILIKE :dia_chi', { dia_chi: dia_chi.trim() })
-      .orderBy("regexp_replace(m.ten_o, '[^0-9]+', '', 'g')::int", 'ASC')
-      .addOrderBy('m.ten_o', 'ASC')
+      .orderBy("regexp_replace(o.ten_o, '[^0-9]+', '', 'g')::int", 'ASC')
+      .addOrderBy('o.ten_o', 'ASC')
       .getRawOne<ORaw>();
-
     if (!row) {
       throw new NotFoundException(`Không tìm thấy ô với địa chỉ: "${dia_chi}"`);
     }
-
+    console.log('FE row.dia_chi =', JSON.stringify(row.dia_chi));
     return this.mapORawToFeature(row);
   }
 }

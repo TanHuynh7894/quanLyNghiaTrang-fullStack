@@ -1,8 +1,13 @@
 /* Dùng :host để style component cha */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Các đoạn code khác của bạn giữ nguyên */
 :host {
   display: flex;
   flex-direction: column;
-  height: 100vh; /* Quan trọng: Cho component cha chiếm 100% chiều cao màn hình */
+  height: 100vh;
   width: 100vw;
 }
 

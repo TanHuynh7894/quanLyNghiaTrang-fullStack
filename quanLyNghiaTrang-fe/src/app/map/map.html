@@ -1,20 +1,99 @@
 <div class="map-controls-container">
   <div class="map-container">
     <div #map class="map-app"></div>
-    <button *ngIf="currentView !== MapViewLevel.Khu" (click)="goBack()" class="back-button">
-      &larr; Quay lại
-    </button>
-    <div *ngIf="detailHtml" class="detail-overlay">
-      <div class="detail-content" [innerHTML]="detailHtml"></div>
-      <button (click)="closeDetailOverlay()" class="close-button">&times;</button>
-    </div>
-    <div class="search-container">
-        <input type="text" class="search-input" placeholder="khu-hang-o">
-        <i class="fas fa-search search-icon"></i>
-        <div class="directions-icon">
-             <i class="fas fa-diamond-turn-right"></i>
+    <!-- DETAIL OVERLAY (glass) -->
+    <div *ngIf="detailHtml as d" class="glass-overlay" (mouseenter)="pauseAuto()" (mouseleave)="resumeAuto()">
+      <button class="glass-close" (click)="closeDetailOverlay()" aria-label="Đóng">×</button>
+
+      <div class="glass-modal">
+        <h1 class="glass-title">Chi tiết dự án</h1>
+
+        <div class="glass-grid">
+          <!-- Pills -->
+          <div class="pill-grid">
+            <div class="pill">
+              <div class="pill-label">Mã</div>
+              <div class="pill-value">{{ d.dia_chi }}</div>
+            </div>
+            <div class="pill">
+              <div class="pill-label">Loại</div>
+              <div class="pill-value">{{ d.mo_phan?.ten_kieu_mo || '—' }}</div>
+            </div>
+            <div class="pill pill-wide">
+              <div class="pill-label">Trạng thái</div>
+              <div class="pill-value uppercase">{{ d.mo_phan?.ten_tinh_trang || '—' }}</div>
+            </div>
+            <div class="pill pill-wide">
+              <div class="pill-label">Giá</div>
+              <div class="pill-value">{{ d.mo_phan?.gia_tri ? (d.mo_phan?.gia_tri | number:'1.0-0')+' ₫' : 'Liên hệ' }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Ảnh lớn + điều hướng -->
+          <div class="image-card">
+            <div class="image-frame">
+              <img *ngIf="(d.hinh_anh_mo_phan?.length||0)>0; else noImg"
+                [src]="mediaBaseUrl + d.hinh_anh_mo_phan[galleryIndex]?.hinh_anh" alt="Ảnh mộ phần" />
+              <button *ngIf="d.hinh_anh_mo_phan?.length>1" class="nav left" (click)="prevImg()">‹</button>
+              <button *ngIf="d.hinh_anh_mo_phan?.length>1" class="nav right" (click)="nextImg()">›</button>
+            </div>
+          </div>
         </div>
+
+        <button class="cta">ĐẶT MUA NGAY</button>
+
+        <div class="detail-section">
+          <h3 class="section-title">Thông tin chi tiết</h3>
+          <div class="info-items-grid">
+            <div class="info-item">
+              <span class="info-icon">📍</span>
+              <div class="info-content">
+                <span class="info-label">Vị trí</span>
+                <p>Khu {{ d.ten_khu }} · Hàng {{ d.ten_hang }} · Ô {{ d.ten_o }}</p>
+              </div>
+            </div>
+            <div class="info-item">
+              <span class="info-icon">📏</span>
+              <div class="info-content">
+                <span class="info-label">Kích thước (Dài x Rộng)</span>
+                <p>{{ d.mo_phan?.chieu_dai }}m × {{ d.mo_phan?.chieu_rong }}m</p>
+              </div>
+            </div>
+            <div class="info-item">
+              <span class="info-icon">📐</span>
+              <div class="info-content">
+                <span class="info-label">Diện tích</span>
+                <p>{{ d.mo_phan?.dien_tich }}m²</p>
+              </div>
+            </div>
+            <div class="info-item">
+              <span class="info-icon">📅</span>
+              <div class="info-content">
+                <span class="info-label">Ngày khảo sát</span>
+                <p>{{ d.mo_phan?.ngay_khao_sat | date:'longDate' }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section" *ngIf="d.lich_su_mo_phan?.length">
+          <h3 class="section-title">Lịch sử mộ phần</h3>
+          <ul class="timeline">
+            <li *ngFor="let ls of d.lich_su_mo_phan" class="timeline-item">
+              <div class="timeline-date">{{ ls.ngay | date:'mediumDate' }}</div>
+              <div class="timeline-content">
+                <strong>{{ ls.the_loai }}</strong>
+                <p>{{ ls.ghi_chu }}</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <ng-template #noImg>
+          <div class="image-placeholder">Không có ảnh</div>
+        </ng-template>
+      </div>
+
     </div>
   </div>
-</div>
-  

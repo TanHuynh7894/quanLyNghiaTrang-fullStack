@@ -33,10 +33,6 @@ export class SharedStateService {
     this.currentViewLevel.next(viewLevel);
   }
 
-  /**
-   * Quay lại cấp độ hiển thị trước đó.
-   * Ví dụ: từ "Ô" về "Hàng", từ "Hàng" về "Khu".
-   */
   goBack(): void {
     const currentLevel = this.currentViewLevel.getValue();
     switch (currentLevel) {
