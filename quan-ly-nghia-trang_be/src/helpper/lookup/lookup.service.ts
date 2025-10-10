@@ -96,6 +96,7 @@ export class LookupService {
         'km.ten_kieu_mo AS ten_kieu_mo',
         'm.ngay_khao_sat AS ngay_khao_sat',
         'm.gia_tri AS gia_tri',
+        'tt.color',
       ])
       .where('m.dia_chi_o = :dia_chi', { dia_chi })
       .getRawOne<MoPhanBase>();

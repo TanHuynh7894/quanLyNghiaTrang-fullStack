@@ -16,6 +16,9 @@ export enum MapViewLevel {
   O
 }
 
+type TinhTrangMoPhanVM =
+  Omit<TinhTrangMoPhan, 'checked'> & { checked: boolean };
+
 @Component({
   selector: 'app-map',
   standalone: true,
@@ -63,10 +66,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private hoveredFeature: FeatureIdentifier | null = null;
   public detailHtml: any | null = null;
 
-  public tinhTrangList: TinhTrangMoPhan[] = [];
+  public tinhTrangList: TinhTrangMoPhanVM[] = [];
   public tinhTrangLoading = false;
   public tinhTrangError?: string;
-  showLegendTtmp = false;  
+  public showLegendTtmp = false;
+  private selectedTinhTrang = new Set<string>();
 
   @HostBinding('class.overlay-visible')
   get isOverlayVisible() {
@@ -151,43 +155,43 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     // Source và Layer cho Ô
     this.map.addSource('o-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, promoteId: 'id' });
-    // this.map.addLayer({ id: 'o-fill', type: 'fill', source: 'o-source', layout: { 'visibility': 'none' }, paint: { 'fill-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#627BC1', '#007cbf'], 'fill-opacity': 0.5 } });
-    this.map.addLayer({
-      id: 'o-fill',
-      type: 'fill',
-      source: 'o-source',
-      layout: { visibility: 'none' },
-      paint: {
-        'fill-color': [
-          'case',
-          ['boolean', ['feature-state', 'hover'], false], 'white',
-          ['boolean', ['feature-state', 'flash'], false], '#0000',
-          [
-            'match',
-            ['coalesce', ['get', 'ma_tinh_trang_flat'], ''],
-            '11111111-2222-3333-4444-000000000001',
-            '#5b5b5bff',
-            '11111111-2222-3333-4444-000000000002',
-            '#ffe800',
-            '11111111-2222-3333-4444-000000000003',
-            '#00d26a',
-            '11111111-2222-3333-4444-000000000004',
-            '#ff9800',
-            '11111111-2222-3333-4444-000000000005',
-            '#673ab7',
-            '11111111-2222-3333-4444-000000000006',
-            '#f44336',
-            '#FFFFFF',
-          ],
-        ],
-        'fill-opacity': [
-          'case',
-          ['boolean', ['feature-state', 'hover'], false], 0.9,
-          ['boolean', ['feature-state', 'flash'], false], 0.9,
-          0.25
-        ],
-      },
-    });
+    this.map.addLayer({ id: 'o-fill', type: 'fill', source: 'o-source', layout: { 'visibility': 'none' }, paint: { 'fill-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#627BC1', '#007cbf'], 'fill-opacity': 0.5 } });
+    // this.map.addLayer({
+    //   id: 'o-fill',
+    //   type: 'fill',
+    //   source: 'o-source',
+    //   layout: { visibility: 'none' },
+    //   paint: {
+    //     'fill-color': [
+    //       'case',
+    //       ['boolean', ['feature-state', 'hover'], false], 'white',
+    //       ['boolean', ['feature-state', 'flash'], false], '#0000',
+    //       [
+    //         'match',
+    //         ['coalesce', ['get', 'ma_tinh_trang_flat'], ''],
+    //         '11111111-2222-3333-4444-000000000001',
+    //         '#5b5b5bff',
+    //         '11111111-2222-3333-4444-000000000002',
+    //         '#ffe800',
+    //         '11111111-2222-3333-4444-000000000003',
+    //         '#00d26a',
+    //         '11111111-2222-3333-4444-000000000004',
+    //         '#ff9800',
+    //         '11111111-2222-3333-4444-000000000005',
+    //         '#673ab7',
+    //         '11111111-2222-3333-4444-000000000006',
+    //         '#f44336',
+    //         '#FFFFFF',
+    //       ],
+    //     ],
+    //     'fill-opacity': [
+    //       'case',
+    //       ['boolean', ['feature-state', 'hover'], false], 0.9,
+    //       ['boolean', ['feature-state', 'flash'], false], 0.9,
+    //       0.25
+    //     ],
+    //   },
+    // });
     this.map.addLayer({
       id: 'o-outline',
       type: 'line',
@@ -367,6 +371,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         this.selectedKhu = ten_khu;
         this.currentView = MapViewLevel.Hang;
       });
+      this.showLegendTtmp = false;
     });
   }
 
@@ -516,16 +521,19 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }, interval);
   }
 
+  // --- Legend ---
   public showTinhTrangMoPhan(): void {
     this.tinhTrangLoading = true;
     this.tinhTrangError = undefined;
 
     this.mapDataService.getTinhTrangMoPhan().subscribe({
       next: (list: TinhTrangMoPhan[]) => {
-      this.tinhTrangList = list.map((tt: TinhTrangMoPhan): TinhTrangMoPhan => ({
-        ...tt,
-        checked: false,
-      }));
+        this.tinhTrangList = list.map((tt): TinhTrangMoPhanVM => ({
+          ...tt,
+          checked: this.selectedTinhTrang.has(tt.ma_tinh_trang),   // <-- đảm bảo là boolean, không undefined
+        }));
+        this.tinhTrangLoading = false;
+        // nếu cần: this.applyTinhTrangColors();
       },
       error: (err) => {
         this.tinhTrangLoading = false;
@@ -534,12 +542,50 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       }
     });
   }
-  onTinhTrangToggle(tt: any) {
-    tt.checked = !tt.checked;
-    console.log('Tình trạng được bật/tắt:', tt.ten_tinh_trang, tt.checked);
 
-    // 👉 Ở đây bạn có thể thêm logic lọc hiển thị trên map
-    // Ví dụ: this.updateMapFilter();
+  public onTinhTrangToggle(tt: TinhTrangMoPhanVM) {
+    tt.checked = !tt.checked;
+    if (tt.checked) this.selectedTinhTrang.add(tt.ma_tinh_trang);
+    else this.selectedTinhTrang.delete(tt.ma_tinh_trang);
+    this.applyTinhTrangColors();
+  }
+
+  private applyTinhTrangColors() {
+    if (!this.map) return;
+    const layerId = 'o-fill';
+    if (!this.map.getLayer(layerId)) return;
+
+    // Property đã chuẩn hoá khi load O: properties.ma_tinh_trang_flat
+    const STATUS_PROP: any[] = ['get', 'ma_tinh_trang_flat'];
+
+    const active = this.tinhTrangList.filter(x => x.checked && x.color);
+    const fallbackColor = 'rgba(120,120,120,0.18)'; // xám nhạt
+
+    if (active.length === 0) {
+      //Không tick gì: reset hoàn toàn về mặc định
+      const hoverFlag: any[] = ['boolean', ['feature-state', 'hover'], false];
+
+      // fill-color khi hover = '#627BC1', ngược lại '#007cbf'
+      const defaultFillColor: any[] = ['case', hoverFlag, '#627BC1', '#007cbf'];
+      this.map.setPaintProperty(layerId, 'fill-color', defaultFillColor as any);
+
+      // fill-opacity khi hover (tuỳ bạn): 0.9, bình thường 0.5
+      const defaultFillOpacity: any[] = ['case', hoverFlag, 0.9, 0.5];
+      this.map.setPaintProperty(layerId, 'fill-opacity', defaultFillOpacity as any);
+
+      return;
+    }
+
+    // Có tick: tô màu theo match; còn lại để xám nhạt
+    const colorExpr: any[] = ['match', STATUS_PROP];
+    for (const s of active) colorExpr.push(s.ma_tinh_trang, s.color!);
+    colorExpr.push(fallbackColor);
+    this.map.setPaintProperty(layerId, 'fill-color', colorExpr as any);
+
+    // Ô khớp trạng thái đang tick thì đậm hơn
+    const isActiveExpr: any[] = ['match', STATUS_PROP, ...active.flatMap(s => [s.ma_tinh_trang, true]), false];
+    const opacityExpr: any[] = ['case', isActiveExpr, 0.75, 0.25];
+    this.map.setPaintProperty(layerId, 'fill-opacity', opacityExpr as any);
   }
 }
 

@@ -100,7 +100,11 @@
       <div class="legend-title">Tình trạng mộ phần</div>
 
       <div class="legend-row" *ngFor="let tt of tinhTrangList">
-        <input type="checkbox" [checked]="tt.checked" (change)="onTinhTrangToggle(tt)" class="legend-checkbox" />
+        <input 
+          type="checkbox" 
+          [checked]="tt.checked" 
+          (change)="onTinhTrangToggle(tt)" 
+          class="legend-checkbox" />
         <span class="swatch" [style.background]="tt.color || '#FFFFFF'"></span>
         <span class="label">{{ tt.ten_tinh_trang }}</span>
       </div>
