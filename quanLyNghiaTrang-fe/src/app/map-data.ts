@@ -50,6 +50,7 @@ export class MapDataService {
 
   getTinhTrangMoPhan(){
     const url = `${environment.apiDomain}/tinh-trang-mo-phan`;
+    console.log(url);
     return this.http.get<TinhTrangMoPhan[]>(url);
   }
 }

@@ -66,6 +66,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   public tinhTrangList: TinhTrangMoPhan[] = [];
   public tinhTrangLoading = false;
   public tinhTrangError?: string;
+  showLegendTtmp = false;  
 
   @HostBinding('class.overlay-visible')
   get isOverlayVisible() {
@@ -88,7 +89,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.setupInteractivity();
       this.mapReady = true;
       this.applySelectionsFromInputs();
-      this.showTinhTrangMoPhan();
     });
   }
 
@@ -367,7 +367,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         this.selectedKhu = ten_khu;
         this.currentView = MapViewLevel.Hang;
       });
-      this.showTinhTrangMoPhan();
     });
   }
 
@@ -404,6 +403,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         this.selectedHang = maHang;
         this.currentView = MapViewLevel.O;
       });
+      this.showLegendTtmp = true;
+      this.showTinhTrangMoPhan();
     });
   }
 
@@ -520,9 +521,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.tinhTrangError = undefined;
 
     this.mapDataService.getTinhTrangMoPhan().subscribe({
-      next: (list) => {
-        this.tinhTrangList = Array.isArray(list) ? list : [];
-        this.tinhTrangLoading = false;
+      next: (list: TinhTrangMoPhan[]) => {
+      this.tinhTrangList = list.map((tt: TinhTrangMoPhan): TinhTrangMoPhan => ({
+        ...tt,
+        checked: false,
+      }));
       },
       error: (err) => {
         this.tinhTrangLoading = false;
@@ -530,6 +533,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         console.error('getTinhTrangMoPhan error:', err);
       }
     });
+  }
+  onTinhTrangToggle(tt: any) {
+    tt.checked = !tt.checked;
+    console.log('Tình trạng được bật/tắt:', tt.ten_tinh_trang, tt.checked);
+
+    // 👉 Ở đây bạn có thể thêm logic lọc hiển thị trên map
+    // Ví dụ: this.updateMapFilter();
   }
 }
 

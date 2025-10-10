@@ -7,6 +7,7 @@ import { KhuModule } from './models/khu/khu.module';
 import { HangModule } from './models/hang/hang.module';
 import { OModule } from './models/o/o.module';
 import { HelperModule } from './helpper/helpper.module';
+import { TinhTrangMoPhanModule } from './models/tinh-trang-mo-phan/tinh-trang-mo-phan.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { HelperModule } from './helpper/helpper.module';
     HangModule,
     OModule,
     HelperModule,
+    TinhTrangMoPhanModule,
   ],
   controllers: [AppController],
   providers: [AppService],
