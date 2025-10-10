@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { FeatureCollection } from 'geojson';
 import { environment } from '../environments/environment';
+import { TinhTrangMoPhan } from '../models/tinh-trang-mo-phan';
 
 @Injectable({
   providedIn: 'root'
@@ -45,6 +46,11 @@ export class MapDataService {
   getOByDiaChi(dia_chi: string): Observable<FeatureCollection> {
     const url = `${environment.apiDomain}/o?dia_chi=${dia_chi}`;
     return this.http.get<FeatureCollection>(url);
+  }
+
+  getTinhTrangMoPhan(){
+    const url = `${environment.apiDomain}/tinh-trang-mo-phan`;
+    return this.http.get<TinhTrangMoPhan[]>(url);
   }
 }
 

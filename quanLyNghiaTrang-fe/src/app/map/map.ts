@@ -7,6 +7,7 @@ import { Feature, GeoJsonProperties } from 'geojson';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
 import type { ExpressionSpecification, FeatureIdentifier, GeoJSONSource } from 'maplibre-gl';
+import { TinhTrangMoPhan } from '../../models/tinh-trang-mo-phan';
 
 // Enum để quản lý trạng thái hiển thị của bản đồ
 export enum MapViewLevel {
@@ -62,6 +63,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private hoveredFeature: FeatureIdentifier | null = null;
   public detailHtml: any | null = null;
 
+  public tinhTrangList: TinhTrangMoPhan[] = [];
+  public tinhTrangLoading = false;
+  public tinhTrangError?: string;
+
   @HostBinding('class.overlay-visible')
   get isOverlayVisible() {
     return !!this.detailHtml;
@@ -83,6 +88,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.setupInteractivity();
       this.mapReady = true;
       this.applySelectionsFromInputs();
+      this.showTinhTrangMoPhan();
     });
   }
 
@@ -361,6 +367,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         this.selectedKhu = ten_khu;
         this.currentView = MapViewLevel.Hang;
       });
+      this.showTinhTrangMoPhan();
     });
   }
 
@@ -506,6 +513,23 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         this.map!.setFeatureState(key, { flash: false });
       }
     }, interval);
+  }
+
+  public showTinhTrangMoPhan(): void {
+    this.tinhTrangLoading = true;
+    this.tinhTrangError = undefined;
+
+    this.mapDataService.getTinhTrangMoPhan().subscribe({
+      next: (list) => {
+        this.tinhTrangList = Array.isArray(list) ? list : [];
+        this.tinhTrangLoading = false;
+      },
+      error: (err) => {
+        this.tinhTrangLoading = false;
+        this.tinhTrangError = 'Lỗi tải tình trạng mộ phần';
+        console.error('getTinhTrangMoPhan error:', err);
+      }
+    });
   }
 }
 

@@ -96,4 +96,21 @@
       </div>
 
     </div>
+    <div class="legend-ttmp" *ngIf="tinhTrangList.length; else legendFallback">
+      <div class="legend-title">Tình trạng mộ phần</div>
+
+      <div class="legend-row" *ngFor="let tt of tinhTrangList">
+        <span class="swatch" [style.background]="tt.color || '#FFFFFF'"></span>
+        <span class="label">{{ tt.ten_tinh_trang }}</span>
+      </div>
+    </div>
+
+    <ng-template #legendFallback>
+      <div class="legend-ttmp">
+        <div class="legend-title">Tình trạng mộ phần</div>
+        <div *ngIf="tinhTrangLoading">Đang tải…</div>
+        <div *ngIf="!tinhTrangLoading && tinhTrangError">{{ tinhTrangError }}</div>
+        <div *ngIf="!tinhTrangLoading && !tinhTrangError">Không có dữ liệu</div>
+      </div>
+    </ng-template>
   </div>
