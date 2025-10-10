@@ -30,6 +30,21 @@ export class MapDataService {
   getOByHang(ten_khu: string, ten_hang: string): Observable<FeatureCollection> {
     const url = `${environment.apiDomain}/o?ten_khu=${ten_khu}&ten_hang=${ten_hang}`;
     return this.http.get<FeatureCollection>(url);
-  } 
+  }
+
+  getKhuByDiaChi(dia_chi: string): Observable<FeatureCollection> {
+    const url = `${environment.apiDomain}/khu?ten_khu=${dia_chi}`;
+    return this.http.get<FeatureCollection>(url);
+  }
+
+  getHangByDiaChi(dia_chi: string): Observable<FeatureCollection> {
+    const url = `${environment.apiDomain}/hang?dia_chi=${dia_chi}`;
+    return this.http.get<FeatureCollection>(url);
+  }
+
+  getOByDiaChi(dia_chi: string): Observable<FeatureCollection> {
+    const url = `${environment.apiDomain}/o?dia_chi=${dia_chi}`;
+    return this.http.get<FeatureCollection>(url);
+  }
 }
 

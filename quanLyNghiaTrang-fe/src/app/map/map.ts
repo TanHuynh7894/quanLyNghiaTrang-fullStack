@@ -6,7 +6,7 @@ import { MapDataService } from '../map-data';
 import { Feature, GeoJsonProperties } from 'geojson';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
-
+import type { ExpressionSpecification, FeatureIdentifier, GeoJSONSource } from 'maplibre-gl';
 
 // Enum để quản lý trạng thái hiển thị của bản đồ
 export enum MapViewLevel {
@@ -59,11 +59,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   // private selectedKhu: string | null = null;
   // private selectedHang: string | null = null;
-  private hoveredFeature: { id: string | number; source: string } | null = null;
+  private hoveredFeature: FeatureIdentifier | null = null;
   public detailHtml: any | null = null;
-  @HostBinding('class.overlay-visible') 
+
+  @HostBinding('class.overlay-visible')
   get isOverlayVisible() {
-    return !!this.detailHtml; 
+    return !!this.detailHtml;
   }
   ngAfterViewInit() {
     const apiKey = '3suk2GO5O2JgkhGmruDP'; // Lưu ý: Nên đưa key này vào environment files
@@ -120,7 +121,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       // Bạn bảo tên trường của Ô là 'ten_o'
       const oFeat = (this.map?.querySourceFeatures('o-source') as any[] || [])
         .find(f => String(f.properties?.['ten_o']) === String(this.selectedO));
-      if (oFeat) this.zoomToFeature(oFeat as unknown as Feature);
+      if (oFeat) {
+        this.zoomToFeature(oFeat as unknown as Feature);
+        setTimeout(() => this.flashOByTenO(this.selectedO!), 600);
+      }
     }
   }
 
@@ -128,21 +132,76 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.map) return;
 
     // Source và Layer cho KHU
-    this.map.addSource('khu-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, generateId: true });
+    this.map.addSource('khu-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, promoteId: 'id' });
     this.map.addLayer({ id: 'khu-fill-layer', type: 'fill', source: 'khu-source', paint: { 'fill-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#EF5350', '#D32F2F'], 'fill-opacity': 0.35 } });
     this.map.addLayer({ id: 'khu-outline-layer', type: 'line', source: 'khu-source', paint: { 'line-color': '#B71C1C', 'line-width': 2.5 } });
     this.map.addLayer({ id: 'khu-label', type: 'symbol', source: 'khu-source', layout: { 'text-field': ['get', 'ten_khu'], 'text-size': 14 }, paint: { 'text-color': '#D32F2F', 'text-halo-color': 'white', 'text-halo-width': 1 } });
 
     // Source và Layer cho HÀNG
-    this.map.addSource('hang-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, generateId: true });
+    this.map.addSource('hang-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, promoteId: 'id' });
     this.map.addLayer({ id: 'hang-fill-layer', type: 'fill', source: 'hang-source', layout: { 'visibility': 'none' }, paint: { 'fill-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#64B5F6', '#1976D2'], 'fill-opacity': 0.35 } });
     this.map.addLayer({ id: 'hang-outline-layer', type: 'line', source: 'hang-source', layout: { 'visibility': 'none' }, paint: { 'line-color': '#0D47A1', 'line-width': 2 } });
     this.map.addLayer({ id: 'hang-label', type: 'symbol', source: 'hang-source', layout: { 'visibility': 'none', 'text-field': ['get', 'ten_hang'], 'text-size': 12 }, paint: { 'text-color': '#1976D2', 'text-halo-color': 'white', 'text-halo-width': 1 } });
 
     // Source và Layer cho Ô
-    this.map.addSource('o-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, generateId: true });
-    this.map.addLayer({ id: 'o-fill', type: 'fill', source: 'o-source', layout: { 'visibility': 'none' }, paint: { 'fill-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#627BC1', '#007cbf'], 'fill-opacity': 0.5 } });
-    this.map.addLayer({ id: 'o-outline', type: 'line', source: 'o-source', layout: { 'visibility': 'none' }, paint: { 'line-color': '#000', 'line-width': 1 } });
+    this.map.addSource('o-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, promoteId: 'id' });
+    // this.map.addLayer({ id: 'o-fill', type: 'fill', source: 'o-source', layout: { 'visibility': 'none' }, paint: { 'fill-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#627BC1', '#007cbf'], 'fill-opacity': 0.5 } });
+    this.map.addLayer({
+      id: 'o-fill',
+      type: 'fill',
+      source: 'o-source',
+      layout: { visibility: 'none' },
+      paint: {
+        'fill-color': [
+          'case',
+          ['boolean', ['feature-state', 'hover'], false], 'white',
+          ['boolean', ['feature-state', 'flash'], false], '#0000',
+          [
+            'match',
+            ['coalesce', ['get', 'ma_tinh_trang_flat'], ''],
+            '11111111-2222-3333-4444-000000000001',
+            '#5b5b5bff',
+            '11111111-2222-3333-4444-000000000002',
+            '#ffe800',
+            '11111111-2222-3333-4444-000000000003',
+            '#00d26a',
+            '11111111-2222-3333-4444-000000000004',
+            '#ff9800',
+            '11111111-2222-3333-4444-000000000005',
+            '#673ab7',
+            '11111111-2222-3333-4444-000000000006',
+            '#f44336',
+            '#FFFFFF',
+          ],
+        ],
+        'fill-opacity': [
+          'case',
+          ['boolean', ['feature-state', 'hover'], false], 0.9,
+          ['boolean', ['feature-state', 'flash'], false], 0.9,
+          0.25
+        ],
+      },
+    });
+    this.map.addLayer({
+      id: 'o-outline',
+      type: 'line',
+      source: 'o-source',
+      layout: {
+        'visibility': 'none'
+      },
+      paint: {
+        'line-color': [
+          'case',
+          ['boolean', ['feature-state', 'flash'], false], '#ffffff',
+          '#000000'
+        ],
+        'line-width': [
+          'case',
+          ['boolean', ['feature-state', 'flash'], false], 4,
+          1
+        ]
+      }
+    });
   }
 
   private loadInitialKhuData(): void {
@@ -212,7 +271,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
         // GỌI showDetail ĐỂ RESET INDEX + BẬT AUTO-SLIDE
         console.log('ĐANG CHẠY BÊN TRONG ZONE!');
-        console.log('Dữ liệu được gán:', parsed);
+        console.log('Dữ liệu được gán:', parsed);
         this.zone.run(() => this.showDetail(parsed));
       };
 
@@ -255,11 +314,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     this.map.getCanvas().style.cursor = 'pointer';
     const currentFeature = e.features[0];
+    // console.log(currentFeature);
 
     // Cập nhật trạng thái hover để highlight
     if (this.hoveredFeature?.id !== currentFeature.id) {
       this.handleMouseLeave(); // Xóa trạng thái và popup cũ
-      this.hoveredFeature = { id: currentFeature.id!, source: currentFeature.source };
+      this.hoveredFeature = { source: currentFeature.source, id: currentFeature.id! };
       this.map?.setFeatureState(this.hoveredFeature, { hover: true });
     }
 
@@ -281,6 +341,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
     this.hoveredFeature = null;
   }
+
 
   private toggleLayersVisibility(layerIds: string[], visibility: 'visible' | 'none'): void {
     if (!this.map) return;
@@ -304,12 +365,31 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private loadOByHang(maKhu: string, maHang: string): void {
-    this.mapDataService.getOByHang(maKhu, maHang).subscribe(data => {
-      // Sửa lỗi: Ẩn đúng layer của Hàng
-      // this.toggleLayersVisibility(['hang-fill-layer', 'hang-outline-layer', 'hang-label'], 'none');
+    this.mapDataService.getOByHang(maKhu, maHang).subscribe((data) => {
+      // Chuẩn hoá mọi feature: mo_phan -> object, tạo field phẳng
+      data.features?.forEach((f: any, i: number) => {
+        const props = (f.properties ??= {}) as Record<string, any>;
 
-      const source = this.map?.getSource('o-source') as maplibregl.GeoJSONSource;
-      if (source) source.setData(data);
+        let mp = props['mo_phan'];
+        if (typeof mp === 'string') {
+          try {
+            mp = JSON.parse(mp);
+          } catch {
+            mp = {};
+          }
+        }
+        if (typeof mp !== 'object' || mp === null) mp = {};
+        props['mo_phan'] = mp;
+
+        // field phẳng để style
+        props['ma_tinh_trang_flat'] = String(mp['ma_tinh_trang'] ?? '');
+
+        // đảm bảo có id để feature-state dùng (promoteId:'id' đọc từ properties.id)
+        if (props['id'] == null) props['id'] = f.id ?? `o_${i}`;
+      });
+
+      const source = this.map?.getSource('o-source') as GeoJSONSource | undefined;
+      source?.setData(data);
 
       this.toggleLayersVisibility(['o-fill', 'o-outline'], 'visible');
 
@@ -386,7 +466,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.clearAuto();
     this.galleryTimer = setInterval(() => {
       if (!this.galleryPaused) this.nextImg();
-    }, 3500);
+    }, 2000);
   }
   private clearAuto() { if (this.galleryTimer) { clearInterval(this.galleryTimer); this.galleryTimer = undefined; } }
   public pauseAuto() { this.galleryPaused = true; }
@@ -403,6 +483,29 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.galleryIndex = 0;
     this.startAuto();
     this.cdr.detectChanges();
+  }
+
+  private flashOByTenO(tenO: string, cycles = 8, interval = 250) {
+    if (!this.map) return;
+    const feats = (this.map.querySourceFeatures('o-source') as any[]) || [];
+    const f = feats.find(ff => String(ff.properties?.['ten_o']) === String(tenO));
+    if (!f) return;
+
+    const id = f.id ?? f.properties?.['id'];
+    if (id == null) return;
+
+    const key = { source: 'o-source', id };
+    let on = false;
+    let count = 0;
+    const timer = setInterval(() => {
+      on = !on;
+      this.map!.setFeatureState(key, { flash: on });
+      count++;
+      if (count >= cycles) {
+        clearInterval(timer);
+        this.map!.setFeatureState(key, { flash: false });
+      }
+    }, interval);
   }
 }
 

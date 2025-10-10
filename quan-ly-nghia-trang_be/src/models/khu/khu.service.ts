@@ -32,6 +32,7 @@ export class KhuService {
         type: 'Feature',
         geometry: JSON.parse(r.geojson) as Geometry,
         properties: {
+          id: r.ma_khu,
           ma_khu: r.ma_khu,
           ten_khu: r.ten_khu,
         },
@@ -58,6 +59,7 @@ export class KhuService {
       type: 'Feature',
       geometry: JSON.parse(row.geojson) as Geometry,
       properties: {
+        id: row.ma_khu,
         ma_khu: row.ma_khu,
         ten_khu: row.ten_khu,
       },

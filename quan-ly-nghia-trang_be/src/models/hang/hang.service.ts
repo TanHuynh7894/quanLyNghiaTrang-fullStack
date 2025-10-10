@@ -30,6 +30,7 @@ export class HangService {
       type: 'Feature',
       geometry,
       properties: {
+        id: row.ma_hang,
         ma_hang: row.ma_hang,
         ten_hang: row.ten_hang,
         ma_khu: row.ma_khu,

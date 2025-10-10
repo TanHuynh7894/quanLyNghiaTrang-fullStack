@@ -15,6 +15,8 @@ export class HeaderComponent {
   projectName = 'My Project';
   isMenuOpen = false;
 
+  query = '';
+
   khus: string[] = [];
   hangs: string[] = [];
   os: string[] = [];
@@ -107,6 +109,96 @@ export class HeaderComponent {
         .map(f => String(f.properties?.['ten_o']))
         .filter(Boolean)
         .sort((a, b) => parseFloat(a) - parseFloat(b));
+    });
+  }
+
+  onSearch() {
+    const raw = this.query.trim();
+    if (!raw) return;
+
+    // Cho phép người dùng dùng -, ., / để phân cách
+    const parts = raw.split(/[-]/).map(s => s.trim()).filter(Boolean);
+
+    // Trường hợp chỉ có KHU
+    if (parts.length === 1) {
+      const khu = parts[0];
+      this.api.getKhuByDiaChi(khu).subscribe({
+        next: (_fc) => {
+          // gán & emit
+          this.selectedKhu = khu;
+          this.selectedHang = undefined;
+          this.selectedO = undefined;
+
+          this.modeChange.emit('hang');
+          this.khuChange.emit(khu);
+          this.loadHangsByKhu(khu);
+        },
+        error: () => {
+          // vẫn emit để map xử lý
+          this.selectedKhu = khu;
+          this.selectedHang = undefined;
+          this.selectedO = undefined;
+
+          this.modeChange.emit('hang');
+          this.khuChange.emit(khu);
+          this.loadHangsByKhu(khu);
+        }
+      });
+      return;
+    }
+
+    // Trường hợp KHU-HÀNG
+    if (parts.length === 2) {
+      const [khu, hang] = parts;
+      const dia_chi = `${khu}-${hang}`;
+      this.api.getHangByDiaChi(dia_chi).subscribe({
+        next: (_fc) => {
+          this.selectedKhu = khu;
+          this.selectedHang = hang;
+          this.selectedO = undefined;
+
+          this.modeChange.emit('o');
+          this.khuChange.emit(khu);
+          this.hangChange.emit(hang);
+          this.loadOsByHang(khu, hang);
+        },
+        error: () => {
+          this.selectedKhu = khu;
+          this.selectedHang = hang;
+          this.selectedO = undefined;
+
+          this.modeChange.emit('o');
+          this.khuChange.emit(khu);
+          this.hangChange.emit(hang);
+          this.loadOsByHang(khu, hang);
+        }
+      });
+      return;
+    }
+
+    // Trường hợp KHU-HÀNG-Ô (lấy đúng 3 phần đầu)
+    const [khu, hang, o] = parts;
+    const dia_chi = `${khu}-${hang}-${o}`;
+    this.api.getOByDiaChi(dia_chi).subscribe({
+      next: (_fc) => {
+        this.selectedKhu = khu;
+        this.selectedHang = hang;
+        this.selectedO = o;
+
+        // MapComponent đang lắng nghe @Input và tự zoom
+        this.khuChange.emit(khu);
+        this.hangChange.emit(hang);
+        this.oChange.emit(o);
+      },
+      error: () => {
+        this.selectedKhu = khu;
+        this.selectedHang = hang;
+        this.selectedO = o;
+
+        this.khuChange.emit(khu);
+        this.hangChange.emit(hang);
+        this.oChange.emit(o);
+      }
     });
   }
 }
