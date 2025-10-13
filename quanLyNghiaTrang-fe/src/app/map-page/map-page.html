@@ -1,5 +1,5 @@
-<!-- <app-header 
-  (menuToggled)="onMenuToggled($event)"
+<app-header
+  (menuToggled)="isMenuVisible = $event"
   [selectedKhu]="selectedKhu"
   [selectedHang]="selectedHang"
   [selectedO]="selectedO"
@@ -14,10 +14,9 @@
   [selectedKhu]="selectedKhu"
   [selectedHang]="selectedHang"
   [selectedO]="selectedO"
-  (khuPicked)="selectedKhu = $event"      
+  (khuPicked)="selectedKhu = $event"
   (hangPicked)="selectedHang = $event"
   (oPicked)="selectedO = $event">
 </app-map>
 
-<app-menu [isActive]="isMenuVisible"></app-menu> -->
-<router-outlet></router-outlet>
+<app-menu [isActive]="isMenuVisible"></app-menu>
