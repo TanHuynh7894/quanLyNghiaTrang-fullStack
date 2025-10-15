@@ -9,7 +9,7 @@ export const routes: Routes = [
     pathMatch: 'full',
   },
   {
-    path: 'map-pages',
+    path: 'map',
     loadComponent: () =>
       import('../app/map-page/map-page').then(m => m.MapPageComponent),
     title: 'Bản đồ',
