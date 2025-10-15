@@ -1,6 +1,44 @@
-/* Cấu trúc header chính */
+/* ===============================
+   Header (rewritten) — v2
+   - Chuẩn hoá biến màu & z-index
+   - Giữ layout cũ
+   - Thêm nút mic (.icon-btn.mic)
+   =============================== */
+
+/* CSS variables để dễ đổi màu & z-index */
+:host {
+  --z-header: 1000;
+  --z-header-ctrl: 1002;
+  --z-menu-toggle: 2001;
+  --z-when-menu-open: 2002;
+
+  --clr-text: #1f2937;           /* gray-800 */
+  --clr-text-muted: #374151;     /* gray-700 */
+  --clr-placeholder: #9ca3af;    /* gray-400 */
+  --clr-surface: #ffffff;
+  --clr-surface-hover: #f3f4f6;  /* gray-100 */
+  --clr-border: #e5e7eb;         /* gray-200 */
+  --clr-ring: rgba(14,165,233,.35);   /* sky-500 ring */
+  --clr-ring-soft: rgba(14,165,233,.15);
+
+  --clr-accent: #0ea5e9;         /* sky-500 */
+  --clr-accent-soft: #e0f2fe;    /* sky-100 */
+
+  --clr-danger: #ff3b30;         /* mic */
+  --clr-danger-hover: #ff5e57;
+
+  --radius-full: 9999px;
+  --radius-md: 8px;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+  --shadow-md: 0 8px 24px rgba(0,0,0,.15);
+  --shadow-md-strong: 0 8px 24px rgba(0,0,0,.18);
+}
+
+/* ===== Header container ===== */
 .app-header {
-  position: absolute ;
+  position: absolute;
+  top: 0;
   margin-top: 5px;
   width: 100%;
   display: flex;
@@ -8,234 +46,199 @@
   align-items: center;
   padding: 10px 20px;
   box-sizing: border-box;
-  z-index: 1000;
-  
-  /* SỬA LẠI: Làm cho header trong suốt */
+  z-index: var(--z-header);
+
   background-color: transparent;
-  box-shadow: none; /* Bỏ bóng đổ */
-  border: none; /* Bỏ viền nếu có */
+  box-shadow: none;
+  border: none;
 }
 
-.header-left, .header-right {
+.header-left,
+.header-right {
   flex-shrink: 0;
-  z-index: 1002;
+  z-index: var(--z-header-ctrl);
 }
 
-/* Các style cho nút menu và tiêu đề */
+/* ===== Title & menu toggle ===== */
 .project-title {
   font-size: 1.5rem;
-  font-weight: bold;
+  font-weight: 700;
   color: black;
-  /* Bỏ bóng chữ */
 }
 
 .menu-toggle-button {
-  background-color: transparent;
+  background: transparent;
   border: none;
   cursor: pointer;
   padding: 0;
-  z-index: 2001;
+  z-index: var(--z-menu-toggle);
 }
 
 .menu-toggle-button span {
   font-size: 1.8rem;
   color: black;
-  /* Bỏ bóng chữ */
-  z-index: 2001;
+  z-index: var(--z-menu-toggle);
 }
 
 .menu-toggle-button.close-style span {
   font-size: 3rem;
   font-weight: 300;
   line-height: 1;
-  z-index: 2001;
+  z-index: var(--z-menu-toggle);
 }
 
-/* Container: place it  over the map */
+/* ===== Search container (overlay on map) ===== */
 .gmaps-search{
-  position: absolute;            /* đổi thành absolute nếu cần trong 1 wrapper */
+  position: absolute;
   top: 16px; left: 80px;
   display: flex; align-items: center; gap: 10px;
-  padding: 5px 5px 5px 5px;
-  width: 350px;
-  height: 35px;
-  border-radius: 9999px;
-  background: #fff;
-  box-shadow:
-    0 1px 2px rgba(0,0,0,.05),
-    0 8px 24px rgba(0,0,0,.15);
-  z-index: 1000;
-  color: #1f2937;             /* text color */
+  padding: 5px;
+  width: 350px; height: 35px;
+  border-radius: var(--radius-full);
+  background: var(--clr-surface);
+  box-shadow: var(--shadow-sm), var(--shadow-md);
+  z-index: var(--z-header);
+  color: var(--clr-text);
 }
 
-.gmaps-search input::placeholder{ color:#9ca3af; }
-
-/* Buttons */
-.icon-btn{
-  height: 36px; width: 36px;
-  border: none; outline: none;
-  background: transparent;
-  border-radius: 9999px;
-  display: grid; place-items: center;
-  color: #374151;
-  cursor: pointer;
-}
-.icon-btn:hover{ background: #f3f4f6; }
-.icon-btn:active{ transform: translateY(1px); }
-
-/* Focus ring for a11y */
 .gmaps-search:focus-within{
   box-shadow:
-    0 0 0 3px rgba(14,165,233,.15),
-    0 8px 24px rgba(0,0,0,.18);
-  border-color: rgba(14,165,233,.35);
+    0 0 0 3px var(--clr-ring-soft),
+    var(--shadow-md-strong);
+  border-color: var(--clr-ring);
 }
 
-/* Small screens */
-@media (max-width: 420px){
-  .gmaps-search{ height: 48px; padding: 8px 8px 8px 12px; }
-  .icon-btn{ height: 32px; width: 32px; }
-}
-
+/* Input */
 #map-search {
-  width: 100%;                /* chiếm hết chiều rộng khung chứa */
-  height: 36px;               /* chiều cao input */
-  padding: 0 12px;            /* khoảng cách text với viền trái/phải */
-  
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
   font-size: 16px;
-  color: #1f2937;             /* màu chữ đậm */
-  
-  background: transparent;    /* nền trong suốt, để dùng nền của container */
-  border: none;               /* bỏ viền mặc định */
-  outline: none;              /* bỏ viền xanh/đen khi focus */
-  box-shadow: none;           /* bỏ shadow mặc định */
-
-  /* placeholder */
-  ::placeholder {
-    color: #9ca3af;           /* màu chữ placeholder */
-    opacity: 1;               /* đảm bảo hiển thị đầy đủ */
-  }
-}
-
-/* Khi focus vào input, có hiệu ứng nhẹ */
-#map-search:focus {
+  color: var(--clr-text);
+  background: transparent;
   border: none;
   outline: none;
   box-shadow: none;
 }
 
+#map-search::placeholder { color: var(--clr-placeholder); opacity: 1; }
+#map-search:focus { border: none; outline: none; box-shadow: none; }
+
+/* Icon buttons (search / clear / mic / v.v.) */
+.icon-btn{
+  height: 36px; width: 36px;
+  border: none; outline: none;
+  background: transparent;
+  border-radius: var(--radius-full);
+  display: grid; place-items: center;
+  color: var(--clr-text-muted);
+  cursor: pointer;
+  transition: background .2s, transform .1s, color .2s;
+}
+.icon-btn:hover{ background: var(--clr-surface-hover); }
+.icon-btn:active{ transform: translateY(1px); }
+
+/* === MIC button states === */
+.icon-btn.mic {
+  /* mặc định chỉ là icon tròn trong suốt */
+}
+.icon-btn.mic:hover {
+  color: var(--clr-danger-hover);
+}
+.icon-btn.mic.is-armed {
+  /* trạng thái “sẵn sàng ghi” (ví dụ khi user cho phép mic) */
+  color: var(--clr-danger);
+}
+.icon-btn.mic.is-recording {
+  color: #fff;
+  background: var(--clr-danger);
+  box-shadow: 0 0 0 4px rgba(255,59,48,.15);
+  animation: mic-pulse 1.4s ease-in-out infinite;
+}
+
+/* Pulse khi đang ghi */
+@keyframes mic-pulse {
+  0%   { box-shadow: 0 0 0 4px rgba(255,59,48,.15); }
+  50%  { box-shadow: 0 0 0 8px rgba(255,59,48,.12); }
+  100% { box-shadow: 0 0 0 4px rgba(255,59,48,.15); }
+}
+
+/* Small screens */
+@media (max-width: 420px){
+  .gmaps-search{ height: 48px; padding: 8px 8px 8px 12px; width: min(88vw, 360px); left: 12px; }
+  .icon-btn{ height: 32px; width: 32px; }
+}
+
+/* ===== Options group (Khu/Hàng/Ô...) ===== */
 .gmaps-options {
   position: absolute;
   top: 22px;
   left: 450px;
   display: flex;
   gap: 10px;
-  z-index: 1000;
+  z-index: var(--z-header);
 }
 
-/* Ẩn input gốc */
-.gmaps-options input[type="radio"] {
-  display: none;
-}
+.gmaps-options input[type="radio"] { display: none; }
 
-/* Nút option */
 .option-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  display: flex; align-items: center; gap: 6px;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
   padding: 6px 14px;
-
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-  border-radius: 9999px;
+  font-size: 14px; font-weight: 500; color: var(--clr-text-muted);
+  border-radius: var(--radius-full);
   cursor: pointer;
-
-  box-shadow:
-    0 1px 2px rgba(0,0,0,.05),
-    0 4px 10px rgba(0,0,0,.15);
-
-  transition: background 0.2s, border-color 0.2s, transform 0.2s;
+  box-shadow: var(--shadow-sm), 0 4px 10px rgba(0,0,0,.15);
+  transition: background .2s, border-color .2s, transform .2s, color .2s;
 }
 
-/* Icon style */
-.option-btn .icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.option-btn svg {
-  width: 18px;
-  height: 18px;
-  fill: #374151;
-}
+.option-btn .icon { display: flex; align-items: center; justify-content: center; }
+.option-btn svg { width: 18px; height: 18px; fill: var(--clr-text-muted); }
 
-/* Hover effect */
-.option-btn:hover {
-  background: #f3f4f6;
-  transform: translateY(-1px);
-}
+.option-btn:hover { background: var(--clr-surface-hover); transform: translateY(-1px); }
 
-/* Khi được chọn */
 .gmaps-options input[type="radio"]:checked + .option-btn {
-  background: #e0f2fe;
-  border-color: #0ea5e9;
-  color: #0ea5e9;
+  background: var(--clr-accent-soft);
+  border-color: var(--clr-accent);
+  color: var(--clr-accent);
 }
-.gmaps-options input[type="radio"]:checked + .option-btn svg {
-  fill: #0ea5e9;
-}
+.gmaps-options input[type="radio"]:checked + .option-btn svg { fill: var(--clr-accent); }
 
-/* --- PHẦN BỔ SUNG ĐỂ ẨN/HIỆN KHI MỞ MENU --- */
-
-/* Sử dụng :host để tham chiếu đến chính component <app-header>.
-  Khi component có class 'header-menu-open', tìm và ẩn các phần tử con này.
-*/
+/* ===== Ẩn/hiện khi mở menu ===== */
 :host(.header-menu-open) .gmaps-search,
 :host(.header-menu-open) .gmaps-options {
   visibility: hidden;
   opacity: 0;
-  transition: opacity 0.2s ease-in-out, visibility 0s linear 0.2s;
+  transition: opacity .2s ease-in-out, visibility 0s linear .2s;
 }
 
-/* Trạng thái mặc định (khi menu đóng), các thành phần này sẽ hiện ra.
-  Lưu ý: CSS này đã có trong file của bạn, nhưng để ở đây để đảm bảo
-  hiệu ứng transition hoạt động nhất quán.
-*/
 .gmaps-search,
 .gmaps-options {
   visibility: visible;
   opacity: 1;
-  transition: opacity 0.2s ease-in-out;
+  transition: opacity .2s ease-in-out;
 }
+
 :host(.header-menu-open) .app-header {
-  z-index: 2002; /* Phải cao hơn z-index của menu (2000) */
+  z-index: var(--z-when-menu-open); /* cao hơn menu (2000) */
 }
+
+/* ===== Dropdown & form bits ===== */
 .dropdown {
   width: 120px;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid #ccc;
-  background-color: #fff;
+  background-color: var(--clr-surface);
   font-size: 14px;
-  transition: border-color 0.2s ease;
+  transition: border-color .2s ease, box-shadow .2s ease;
 }
-
 .dropdown:focus {
   outline: none;
   border-color: #1976d2;
-  box-shadow: 0 0 4px rgba(25, 118, 210, 0.5);
+  box-shadow: 0 0 4px rgba(25,118,210,.5);
 }
 
-fieldset {
-  border: none;
-  margin-bottom: 12px;
-}
-
-legend {
-  font-weight: 600;
-  margin-bottom: 4px;
-}
+fieldset { border: none; margin-bottom: 12px; }
+legend { font-weight: 600; margin-bottom: 4px; }

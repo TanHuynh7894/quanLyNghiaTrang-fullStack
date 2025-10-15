@@ -332,6 +332,13 @@ CREATE TABLE dao_tao_nhan_vien (
   CONSTRAINT fk_dtnv_nhan_vien FOREIGN KEY (ma_nhan_vien) REFERENCES nhan_vien(ma_nhan_vien) ON DELETE CASCADE
 );
 
+CREATE TABLE voice_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  file_url TEXT NOT NULL,
+  status SMALLINT NOT NULL DEFAULT 0 CHECK (status IN (0, 1)),  -- 0: uploaded, 1: transcribed
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ===== SEED DATA (UUID CỐ ĐỊNH ĐỂ THAM CHIẾU) =====
 -- Trang thái
 INSERT INTO trang_thai(ma_trang_thai, ten_trang_thai) VALUES
@@ -1515,4 +1522,6 @@ WHERE nv.email IN (
   'tungct5599@cty.vn'
 )
 ON CONFLICT DO NOTHING;
+
+
 
