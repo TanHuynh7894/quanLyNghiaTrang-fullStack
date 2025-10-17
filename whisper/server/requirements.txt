@@ -1,5 +1,18 @@
+# Core web framework
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
-pydantic==2.9.2
 python-multipart==0.0.9
+pydantic==2.9.2
+
+# PhoWhisper / Faster-Whisper (CTranslate2 backend)
 faster-whisper==1.0.3
+ctranslate2>=4.3.1
+huggingface-hub>=0.23.4
+
+# Audio processing (để tránh lỗi format)
+soundfile>=0.12.1
+ffmpeg-python>=0.2.0
+
+# Optional - tăng tốc GPU và inference
+torch>=2.2.0
+numpy>=1.26.4

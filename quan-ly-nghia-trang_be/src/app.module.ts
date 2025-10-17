@@ -8,6 +8,7 @@ import { HangModule } from './models/hang/hang.module';
 import { OModule } from './models/o/o.module';
 import { HelperModule } from './helpper/helpper.module';
 import { TinhTrangMoPhanModule } from './models/tinh-trang-mo-phan/tinh-trang-mo-phan.module';
+import { VoiceNotesModule } from './models/voice-notes/voice-notes.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { TinhTrangMoPhanModule } from './models/tinh-trang-mo-phan/tinh-trang-mo
     OModule,
     HelperModule,
     TinhTrangMoPhanModule,
+    VoiceNotesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
