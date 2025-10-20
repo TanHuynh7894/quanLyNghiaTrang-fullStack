@@ -124,49 +124,32 @@ export class HeaderComponent {
     });
   }
 
-  async onSearch() {
-    if (this.isRecordingMode) return;
-    const raw = (this.query || '').trim();
-    if (!raw) return;
+  onSearch() {
+  const query = this.query.trim();
+  if (!query) return;
 
-    // Nhận diện "địa chỉ ô": 6.1 | 6.1-1 | 6.1-1-1 (cũng chấp nhận chỉ số khu 6, hoặc 6.1)
-    const isAddressLike =
-      /\d+\.\d+/.test(raw) ||                 // có dạng 6.1
-      /^\d+(\.\d+)?(-\d+(-\d+)?)?$/.test(raw); // 6 | 6.1 | 6.1-1 | 6.1-1-1
-
-    if (!isAddressLike) {
-      this.searchByNguoiMat(raw);
-      return;
-    }
-
-    // ===== ĐỊA CHỈ: giữ hành vi cũ =====
-    const parts = raw.split(/[-]/).map(s => s.trim()).filter(Boolean);
-
-    if (parts.length === 1) {
-      const khu = parts[0];
-      this.selectedKhu = khu; this.selectedHang = undefined; this.selectedO = undefined;
-      this.modeChange.emit('hang');
-      this.khuChange.emit(khu);
-      this.loadHangsByKhu(khu);
-      return;
-    }
-
-    if (parts.length === 2) {
-      const [khu, hang] = parts;
-      this.selectedKhu = khu; this.selectedHang = hang; this.selectedO = undefined;
-      this.modeChange.emit('o');
-      this.khuChange.emit(khu);
-      this.hangChange.emit(hang);
-      this.loadOsByHang(khu, hang);
-      return;
-    }
-
-    const [khu, hang, o] = parts;
-    this.selectedKhu = khu; this.selectedHang = hang; this.selectedO = o;
-    this.khuChange.emit(khu);
-    this.hangChange.emit(hang);
-    this.oChange.emit(o);
+  const isAddress = /^\d+(\.\d+)?(-\d+){0,2}$/.test(query);
+  if (isAddress) {
+    // xử lý địa chỉ như hiện tại
+    this.modeChange.emit('o');
+    const parts = query.split('-');
+    this.khuChange.emit(parts[0]);
+    if (parts[1]) this.hangChange.emit(parts[1]);
+    if (parts[2]) this.oChange.emit(parts[2]);
+  } else {
+    // tìm theo tên người mất
+    this.api.getOByTenNguoiMat(query).subscribe({
+      next: (f) => {
+        if (!f?.properties) return;
+        const { ten_khu, ten_hang, ten_o } = f.properties;
+        this.khuChange.emit(ten_khu);
+        this.hangChange.emit(ten_hang);
+        this.oChange.emit(ten_o);
+      },
+      error: (e) => console.error('[onSearch tenNguoiMat]', e)
+    });
   }
+}
 
   // ===== recording flow =====
   async onMicClickStart() {
@@ -357,44 +340,5 @@ export class HeaderComponent {
     const wav = this.encodeWav(samples, this.SAMPLE_RATE);
     const blob = new Blob([wav], { type: 'audio/wav' });
     return new File([blob], `rec_${Date.now()}.wav`, { type: 'audio/wav' });
-  }
-
-  private searchByNguoiMat(name: string) {
-    // reset lỗi cũ (nếu có)
-    this.recordError = undefined;
-
-    this.api.getOByTenNguoiMat(name).subscribe({
-      next: (feat: any) => {
-        const props = feat?.properties || {};
-        const khu = String(props['ten_khu'] ?? '');
-        const hang = String(props['ten_hang'] ?? '');
-        const o = String(props['ten_o'] ?? '');
-
-        if (!khu || !hang || !o) {
-          this.recordError = 'Kết quả thiếu ten_khu/ten_hang/ten_o';
-          return;
-        }
-
-        // set UI như khi chọn đủ 3 cấp
-        this.selectedKhu = khu;
-        this.selectedHang = hang;
-        this.selectedO = o;
-
-        this.khuChange.emit(khu);
-        this.hangChange.emit(hang);
-        this.oChange.emit(o);
-
-        // nạp lại dropdown (không cần chờ)
-        this.loadHangsByKhu(khu);
-        this.loadOsByHang(khu, hang);
-      },
-      error: (err) => {
-        console.error('searchByNguoiMat error:', err);
-        this.recordError =
-          err?.error?.message ||
-          err?.message ||
-          'Không tìm thấy người mất phù hợp';
-      },
-    });
   }
 }
