@@ -9,6 +9,18 @@ import { OModule } from './models/o/o.module';
 import { HelperModule } from './helpper/helpper.module';
 import { TinhTrangMoPhanModule } from './models/tinh-trang-mo-phan/tinh-trang-mo-phan.module';
 import { VoiceNotesModule } from './models/voice-notes/voice-notes.module';
+import { NguoiDungModule } from './models/nguoi-dung/nguoi-dung.module';
+import { TrangThaiModule } from './models/trang-thai/trang-thai.module';
+import { KhachHangModule } from './models/khach-hang/khach-hang.module';
+import { DichVuModule } from './models/dich-vu/dich-vu.module';
+import { ThanhToanModule } from './models/thanh-toan/thanh-toan.module';
+import { DonViModule } from './models/don-vi/don-vi.module';
+import { ChucVuModule } from './models/chuc-vu/chuc-vu.module';
+import { NhanVienChucVuModule } from './models/nhan-vien-chuc-vu/nhan-vien-chuc-vu.module';
+import { NhanVienModule } from './models/nhan-vien/nhan-vien.module';
+import { HopDongModule } from './models/hop-dong/hop-dong.module';
+import { ThongTinNguoiMatModule } from './models/thong-tin-nguoi-mat/thong-tin-nguoi-mat.module';
+import { HopDongChiTietModule } from './models/hop-dong-chi-tiet/hop-dong-chi-tiet.module';
 
 @Module({
   imports: [
@@ -39,6 +51,18 @@ import { VoiceNotesModule } from './models/voice-notes/voice-notes.module';
     HelperModule,
     TinhTrangMoPhanModule,
     VoiceNotesModule,
+    NguoiDungModule,
+    TrangThaiModule,
+    KhachHangModule,
+    DichVuModule,
+    ThanhToanModule,
+    DonViModule,
+    ChucVuModule,
+    NhanVienChucVuModule,
+    NhanVienModule,
+    HopDongModule,
+    ThongTinNguoiMatModule,
+    HopDongChiTietModule,
   ],
   controllers: [AppController],
   providers: [AppService],
