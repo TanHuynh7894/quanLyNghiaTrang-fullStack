@@ -11,6 +11,8 @@ import {
   MoPhanBundle,
 } from '../../helpper/lookup/lookup.service';
 
+import { HopDongChiTiet } from '../hop-dong-chi-tiet/entities/hop-dong-chi-tiet.entity';
+import { ThongTinNguoiMat } from '../thong-tin-nguoi-mat/entities/thong-tin-nguoi-mat.entity';
 type ORaw = {
   id: string;
   ten_o: string;
@@ -26,6 +28,8 @@ type ORaw = {
 export class OService {
   constructor(
     @InjectRepository(OEntity) private readonly oRepo: Repository<OEntity>,
+    @InjectRepository(HopDongChiTiet)
+    private readonly hdctRepo: Repository<HopDongChiTiet>,
     private readonly lookup: LookupService,
   ) {}
 
@@ -158,5 +162,35 @@ export class OService {
     }
     console.log('FE row.dia_chi =', JSON.stringify(row.dia_chi));
     return this.mapORawToFeature(row);
+  }
+
+  async findOneByTenNguoiMat(tenNguoiMat: string): Promise<Feature> {
+    // normalize input (bỏ nháy, dư space)
+    const ten = (tenNguoiMat ?? '')
+      .replace(/^['"]+|['"]+$/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!ten) {
+      throw new NotFoundException('Thiếu tên người mất');
+    }
+
+    // JOIN trực tiếp NguoiMat theo khóa ngoại ma_nguoi_mat
+    const hdct = await this.hdctRepo
+      .createQueryBuilder('hdct')
+      .innerJoin(ThongTinNguoiMat, 'nm', 'nm.ma_nguoi_mat = hdct.ma_nguoi_mat')
+      .where('nm.ten_nguoi_mat ILIKE :ten', { ten: `%${ten}%` })
+      .orderBy('hdct.ngay_thuc_hien', 'DESC') // đổi đúng tên cột DB của bạn
+      .addOrderBy('hdct.ngay_ban_giao', 'DESC') // đổi đúng tên cột DB của bạn
+      .getOne();
+
+    if (!hdct || !hdct.diaChiO /* hoặc 'hdct.dia_chi_o' nếu snake_case */) {
+      throw new NotFoundException(
+        `Không tìm thấy hợp đồng/địa chỉ ô cho người mất: "${ten}"`,
+      );
+    }
+
+    // Trả về Feature đầy đủ (kèm mo_phan/lich_su/hinh_anh)
+    return this.findOneByDiaChi(hdct.diaChiO /* hoặc hdct.dia_chi_o */);
   }
 }

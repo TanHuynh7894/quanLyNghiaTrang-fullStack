@@ -8,6 +8,6 @@ import { HopDongChiTietController } from './hop-dong-chi-tiet.controller';
   imports: [TypeOrmModule.forFeature([HopDongChiTiet])],
   controllers: [HopDongChiTietController],
   providers: [HopDongChiTietService],
-  exports: [HopDongChiTietService],
+  exports: [HopDongChiTietService, TypeOrmModule],
 })
 export class HopDongChiTietModule {}

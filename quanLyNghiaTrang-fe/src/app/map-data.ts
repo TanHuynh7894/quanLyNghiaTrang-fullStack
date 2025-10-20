@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { FeatureCollection } from 'geojson';
+import { FeatureCollection, Feature } from 'geojson';
 import { environment } from '../environments/environment';
 import { TinhTrangMoPhan } from '../models/tinh-trang-mo-phan';
 
@@ -53,5 +53,11 @@ export class MapDataService {
     console.log(url);
     return this.http.get<TinhTrangMoPhan[]>(url);
   }
+
+  getOByTenNguoiMat(tenNguoiMat: string): Observable<Feature> {
+    const params = new HttpParams().set('ten_nguoi_mat', tenNguoiMat);
+    return this.http.get<Feature>(`${environment.apiDomain}/o`, { params });
+  }
+
 }
 

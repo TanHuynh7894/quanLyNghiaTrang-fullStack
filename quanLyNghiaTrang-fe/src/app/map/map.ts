@@ -310,7 +310,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
 
     if (!bounds.isEmpty()) {
-      this.map.fitBounds(bounds, { padding: 100, maxZoom: 19, duration: 1200 });
+      this.map.fitBounds(bounds, { padding: 20, maxZoom: 22, duration: 800 });
     }
   }
 
