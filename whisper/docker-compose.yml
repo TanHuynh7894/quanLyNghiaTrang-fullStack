@@ -7,6 +7,7 @@ services:
       dockerfile: Dockerfile
     image: whisper-gpu-server
     container_name: whisper-asr
+
     ports:
       - "8010:8000"
 
@@ -15,30 +16,36 @@ services:
       CT2_DEVICE: "cuda"
       CT2_COMPUTE_TYPE: "float16"
       HF_HOME: "/root/.cache/huggingface"
-      BE_BASE_URL: "http://localhost:5000"
-      NVIDIA_VISIBLE_DEVICES: "all"
-      NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
+      # Dùng host.docker.internal để gọi BE trên máy host (Windows/macOS)
+      BE_BASE_URL: "http://host.docker.internal:5000"
+      LOG_LEVEL: "INFO"
+      TAGGER_BACKEND: "none"      # "seq2seq" | "gec_tagger" | "none"
+      TAGGER_MODEL: ""
+      TAGGER_DEVICE: "cuda"
 
-    # Mount để code app.py luôn đồng bộ với máy thật
     volumes:
-      # cache huggingface
       - "E:/D/vnpt/quanLyNghiaTrang_1/whisper/.cache/huggingface:/root/.cache/huggingface"
-      # mount app.py từ host (khi bạn sửa thì container cũng cập nhật)
       - "E:/D/vnpt/quanLyNghiaTrang_1/whisper/server/app.py:/app/app.py:ro"
+      # - "E:/D/vnpt/quanLyNghiaTrang_1/whisper/models/tagger:/models/tagger:ro"  # nếu dùng tagging local
+
+    # Cách đúng cho GPU trong Docker Compose hiện đại:
+    gpus: "all"
 
     restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              capabilities: [gpu]
 
-    command: [
-      "uvicorn",
-      "app:app",
-      "--host", "0.0.0.0",
-      "--port", "8000",
-      "--timeout-keep-alive", "120",
-      "--log-level", "info"
-    ]
+    command:
+      [
+        "uvicorn",
+        "app:app",
+        "--host", "0.0.0.0",
+        "--port", "8000",
+        "--timeout-keep-alive", "120",
+        "--log-level", "info",
+        "--reload"
+      ]
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
