@@ -10,8 +10,7 @@ async function bootstrap() {
 
   const origin = config.get<string>('Domain_fe') || 'http://localhost:4200';
   const credentials = config.get<string>('CORS_CREDENTIALS') === 'true';
-  app.use('/media', express.static(path.join(__dirname, '..', 'uploads')));
-
+  app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
   app.enableCors({
     origin,
     credentials,

@@ -12,10 +12,14 @@ type UIState = 'idle' | 'recording';
 
 type AiJson = {
   text: string;
-  intent?: string;
+  intent?: 'o_ten_nguoi_mat' | 'o_dia_chi' | 'o_ten' | 'hang_dia_chi' | 'hang_ten' | 'khu';
   be_url?: string;
   params?: Record<string, any>;
 };
+
+type UploadRespOld = { ok: boolean; filename: string; path?: string };
+type UploadRespNew = { id: string; file_url: string; status: number; created_at: string };
+type TranscribeResp = { ok: boolean; data: AiJson; result?: any };
 
 @Component({
   selector: 'app-header',
@@ -58,9 +62,9 @@ export class HeaderComponent {
 
   // Waveform SVG params
   @ViewChild('waveSvg') waveSvg?: ElementRef<SVGSVGElement>;
-  stemsCount = 48;          // số cọc
-  stemGap = 8;              // khoảng cách giữa cọc (px trong viewBox)
-  svgH = 60;                // chiều cao viewBox
+  stemsCount = 48;
+  stemGap = 8;
+  svgH = 60;
   get svgW() { return (this.stemsCount - 1) * this.stemGap + 1; }
   get centerY() { return this.svgH / 2; }
   stemsArr = Array.from({ length: this.stemsCount });
@@ -81,54 +85,39 @@ export class HeaderComponent {
   private readonly SAMPLE_RATE = 16000;
 
   // =========================
-  // API endpoints
+  // API endpoints (BE theo module voice-notes)
   // =========================
-  // Lưu ý: Đảm bảo BE route trùng khớp với code NestJS đã cấu hình.
-  private readonly UPLOAD_URL = 'http://localhost:5000/voice/upload';
-  private readonly TRANSCRIBE_URL = 'http://localhost:5000/voice/transcribe';
-  private readonly PROXY_URL = 'http://localhost:5000/voice/proxy';
+  private readonly UPLOAD_URL = 'http://localhost:5000/voice-notes/upload';
+  private readonly TRANSCRIBE_URL = 'http://localhost:5000/voice-notes/transcribe';
+  private readonly PROXY_URL = 'http://localhost:5000/voice-notes/proxy'; // fallback khi cần
 
-  constructor(private api: MapDataService, private http: HttpClient) { }
+  constructor(private api: MapDataService, private http: HttpClient) {}
 
   // =========================
   // Lifecycle
   // =========================
   ngOnInit() {
-    console.log('[header] ngOnInit');
-    console.time('[header] loadKhuBoundaries');
     this.api.getKhuBoundaries().subscribe({
       next: (fc: FeatureCollection) => {
         this.khus = Array.from(new Set(
           fc.features.map(f => String(f.properties?.['ten_khu'])).filter(Boolean)
         ));
-        console.timeEnd('[header] loadKhuBoundaries');
-        console.log('[header] khus loaded:', this.khus.length);
       },
-      error: (err) => {
-        console.timeEnd('[header] loadKhuBoundaries');
-        console.error('[header] loadKhuBoundaries error:', err);
-      }
+      error: (err) => console.error('[header] loadKhuBoundaries error:', err)
     });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['selectedKhu'] && this.selectedKhu) {
-      console.log('[header] ngOnChanges selectedKhu =', this.selectedKhu);
-      this.loadHangsByKhu(this.selectedKhu);
-    }
-    if (changes['selectedHang'] && this.selectedKhu && this.selectedHang) {
-      console.log('[header] ngOnChanges selectedHang =', this.selectedHang);
-      this.loadOsByHang(this.selectedKhu, this.selectedHang);
-    }
+    if (changes['selectedKhu'] && this.selectedKhu) this.loadHangsByKhu(this.selectedKhu);
+    if (changes['selectedHang'] && this.selectedKhu && this.selectedHang) this.loadOsByHang(this.selectedKhu, this.selectedHang);
   }
 
   // =========================
-  // Menu toggle
+  // Menu
   // =========================
   toggleMenu(): void {
     this.isMenuOpen = !this.isMenuOpen;
     this.menuToggled.emit(this.isMenuOpen);
-    console.log('[header] toggleMenu ->', this.isMenuOpen);
   }
 
   // =========================
@@ -136,7 +125,6 @@ export class HeaderComponent {
   // =========================
   onKhuChange() {
     if (!this.selectedKhu) return;
-    console.log('[header] onKhuChange ->', this.selectedKhu);
     this.selectedHang = undefined; this.selectedO = undefined;
     this.hangs = []; this.os = [];
     this.modeChange.emit('hang');
@@ -146,87 +134,57 @@ export class HeaderComponent {
 
   onHangChange() {
     if (!this.selectedKhu || !this.selectedHang) return;
-    console.log('[header] onHangChange ->', this.selectedHang);
     this.selectedO = undefined; this.os = [];
     this.modeChange.emit('o');
     this.hangChange.emit(this.selectedHang);
     this.loadOsByHang(this.selectedKhu, this.selectedHang);
   }
 
-  onOChange() {
-    if (this.selectedO) {
-      console.log('[header] onOChange ->', this.selectedO);
-      this.oChange.emit(this.selectedO);
-    }
-  }
+  onOChange() { if (this.selectedO) this.oChange.emit(this.selectedO); }
 
   private loadHangsByKhu(ten_khu: string) {
-    console.time('[header] loadHangsByKhu');
     this.api.getHangByKhu(ten_khu).subscribe({
       next: (fc: FeatureCollection) => {
         this.hangs = Array.from(new Set(
           fc.features.map(f => String(f.properties?.['ten_hang'])).filter(Boolean)
         )).sort((a, b) => parseFloat(a) - parseFloat(b));
-        console.timeEnd('[header] loadHangsByKhu');
-        console.log('[header] hangs loaded:', this.hangs.length);
       },
-      error: (err) => {
-        console.timeEnd('[header] loadHangsByKhu');
-        console.error('[header] loadHangsByKhu error:', err);
-      }
+      error: (err) => console.error('[header] loadHangsByKhu error:', err)
     });
   }
 
   private loadOsByHang(ten_khu: string, ten_hang: string) {
-    console.time('[header] loadOsByHang');
     this.api.getOByHang(ten_khu, ten_hang).subscribe({
       next: (fc) => {
         this.os = fc.features.map(f => String(f.properties?.['ten_o']))
           .filter(Boolean).sort((a, b) => parseFloat(a) - parseFloat(b));
-        console.timeEnd('[header] loadOsByHang');
-        console.log('[header] os loaded:', this.os.length);
       },
-      error: (err) => {
-        console.timeEnd('[header] loadOsByHang');
-        console.error('[header] loadOsByHang error:', err);
-      }
+      error: (err) => console.error('[header] loadOsByHang error:', err)
     });
   }
 
   onSearch() {
     const query = this.query.trim();
-    console.log('[header] onSearch query =', query);
     if (!query) return;
 
     const isAddress = /^\d+(\.\d+)?(-\d+){0,2}$/.test(query);
-
     if (isAddress) {
-      console.log('[header] search as address');
       this.modeChange.emit('o');
       const parts = query.split('-');
       this.khuChange.emit(parts[0]);
       if (parts[1]) this.hangChange.emit(parts[1]);
       if (parts[2]) this.oChange.emit(parts[2]);
     } else {
-      console.time('[header] search tenNguoiMat');
       this.api.getOByTenNguoiMat(query).subscribe({
         next: (f) => {
-          console.timeEnd('[header] search tenNguoiMat');
-          if (!f?.properties) {
-            console.warn('[header] tenNguoiMat not found for:', query);
-            return;
-          }
+          if (!f?.properties) return;
           const { ten_khu, ten_hang, ten_o } = f.properties;
-          console.log('[header] tenNguoiMat found →', { ten_khu, ten_hang, ten_o });
           this.khuChange.emit(ten_khu);
           this.hangChange.emit(ten_hang);
           this.oChange.emit(ten_o);
           this.modeChange.emit('o');
         },
-        error: (e) => {
-          console.timeEnd('[header] search tenNguoiMat');
-          console.error('[header] onSearch tenNguoiMat error:', e);
-        }
+        error: (e) => console.error('[onSearch tenNguoiMat]', e)
       });
     }
   }
@@ -236,115 +194,61 @@ export class HeaderComponent {
   // =========================
   async onMicClickStart() {
     this.recordError = undefined;
-    console.log('[rec] onMicClickStart');
     try {
-      // render recordingTpl
       this.isRecordingMode = true;
       await new Promise<void>(r => setTimeout(r, 0));
-
-      // bắt đầu thu
       await this.startRecording();
-
-      // timer & waveform
       this.startTimer();
       this.startWaveLoop();
-      console.log('[rec] start ok');
     } catch (e: any) {
       this.recordError = e?.message || String(e);
-      console.error('[rec] start error:', e);
       await this.cleanupRecording();
       this.isRecordingMode = false;
     }
   }
 
   async onCancelRecording() {
-    console.log('[rec] onCancelRecording');
     await this.cleanupRecording();
     this.isRecordingMode = false;
     this.elapsedMs = 0;
   }
 
   async onSendRecording() {
-    console.log('[rec] onSendRecording elapsedMs=', this.elapsedMs);
-    if (this.elapsedMs < this.MIN_SEND_MS) {
-      console.warn('[rec] too short, ignore');
-      return;
-    }
+    if (this.elapsedMs < this.MIN_SEND_MS) return;
 
     try {
       this.isUploading = true;
 
-      // 1) Đóng ghi & lấy file WAV
-      console.time('[rec] finalizeToFile');
+      // 1) finalize WAV
       const file = await this.finalizeToFile();
-      console.timeEnd('[rec] finalizeToFile');
-      console.log('[rec] file ready:', file.name, file.size, file.type);
 
-      // 2) UPLOAD
-      console.time('[api] upload');
+      // 2) upload
       const form = new FormData();
       form.append('file', file);
-      const upResp = await this.http.post<{ ok: boolean; filename: string; path?: string }>(
-        this.UPLOAD_URL, form
-      ).toPromise();
-      console.timeEnd('[api] upload');
-      console.log('[api] upload resp:', upResp);
+      const upResp = await this.http.post<UploadRespOld | UploadRespNew>(this.UPLOAD_URL, form).toPromise();
+      const filename = this.extractFilenameFromUpload(upResp);
+      if (!filename) throw new Error('Upload thất bại: không có filename');
 
-      if (!upResp?.ok || !upResp.filename) {
-        throw new Error('Upload thất bại');
-      }
+      // 3) transcribe (BE sẽ gọi Docker AI và follow be_url nếu có)
+      const trResp = await this.http.post<TranscribeResp>(this.TRANSCRIBE_URL, { filename }).toPromise();
+      if (!trResp?.ok || !trResp.data) throw new Error('Transcribe thất bại');
 
-      // 3) TRANSCRIBE (Docker AI)
-      console.time('[api] transcribe');
-      const trResp = await this.http.post<{ ok: boolean; data: AiJson }>(
-        this.TRANSCRIBE_URL, { filename: upResp.filename }
-      ).toPromise();
-      console.timeEnd('[api] transcribe');
-      console.log('[api] transcribe resp:', trResp);
+      const ai = trResp.data;
+      let beData: any = trResp.result ?? null;
 
-      if (!trResp?.ok || !trResp.data) {
-        throw new Error('Transcribe thất bại');
-      }
-
-      const ai = trResp.data; // { text, intent, be_url, params }
-      console.log('[AI] text:', ai.text, 'intent:', ai.intent, 'be_url:', ai.be_url, 'params:', ai.params);
-
-      // 4) FOLLOW be_url qua proxy để tránh CORS
-      let beData: any = null;
-      if (ai.be_url) {
-        console.time('[api] proxy be_url');
+      // fallback: nếu BE chưa follow (hiếm), proxy theo be_url
+      if (!beData && ai.be_url) {
         beData = await this.http.get<{ ok: boolean; data: any }>(
           this.PROXY_URL, { params: new HttpParams().set('url', ai.be_url) }
         ).toPromise().then(r => r?.data ?? null);
-        console.timeEnd('[api] proxy be_url');
-        console.log('[api] proxy resp:', beData);
-      } else {
-        console.warn('[AI] be_url empty → skip proxy');
       }
 
-      // 5) Tương tác FE theo intent
-      if (ai.intent === 'o_ten_nguoi_mat' && beData) {
-        // tuỳ backend trả gì; giả định trả 1 Feature với .properties
-        const f = beData?.properties ? beData : null;
-        if (f) {
-          const { ten_khu, ten_hang, ten_o } = f.properties;
-          console.log('[intent] o_ten_nguoi_mat → emit:', { ten_khu, ten_hang, ten_o });
-          if (ten_khu) this.khuChange.emit(ten_khu);
-          if (ten_hang) this.hangChange.emit(ten_hang);
-          if (ten_o) this.oChange.emit(ten_o);
-          this.modeChange.emit('o');
-        } else {
-          console.warn('[intent] o_ten_nguoi_mat but beData not Feature-like');
-        }
-      } else if (ai.intent) {
-        console.log('[intent] other:', ai.intent, 'params:', ai.params);
-        // TODO: handle các intent khác nếu có
-      }
+      // 4) xử lý intent đúng theo app.py
+      this.handleIntent(ai, beData);
 
-      // 6) Reset UI
+      // 5) reset UI
       this.isRecordingMode = false;
       this.elapsedMs = 0;
-      console.log('[rec] done');
 
     } catch (e: any) {
       this.recordError = e?.message || String(e);
@@ -355,39 +259,115 @@ export class HeaderComponent {
   }
 
   // =========================
+  // Intent handler (đúng danh sách của app.py)
+  // =========================
+  private handleIntent(ai: AiJson, beData: any) {
+    const f = this.asFeature(beData);
+
+    switch (ai.intent) {
+      // ------ O (đầy đủ khu + hàng + ô) ------
+      case 'o_ten_nguoi_mat':
+      case 'o_dia_chi':
+      case 'o_ten': {
+        const info = this.extractKhuHangO(f ?? beData);
+        if (!info) {
+          console.warn(`[intent ${ai.intent}] dữ liệu trả về không phải Feature/không có ten_khu/ten_hang/ten_o`, beData);
+          return;
+        }
+        const { ten_khu, ten_hang, ten_o } = info;
+        if (ten_khu) this.khuChange.emit(ten_khu);
+        if (ten_hang) this.hangChange.emit(ten_hang);
+        if (ten_o) this.oChange.emit(ten_o);
+        this.modeChange.emit('o');
+        break;
+      }
+
+      // ------ HÀNG (khu + hàng) ------
+      case 'hang_dia_chi':
+      case 'hang_ten': {
+        const info = this.extractKhuHang(f ?? beData);
+        if (!info) {
+          console.warn(`[intent ${ai.intent}] dữ liệu không có ten_khu/ten_hang`, beData);
+          return;
+        }
+        const { ten_khu, ten_hang } = info;
+        if (ten_khu) this.khuChange.emit(ten_khu);
+        if (ten_hang) this.hangChange.emit(ten_hang);
+        this.modeChange.emit('o');       // chuyển xuống chọn ô
+        break;
+      }
+
+      // ------ KHU ------
+      case 'khu': {
+        const khu = this.extractKhu(f ?? beData);
+        if (!khu) {
+          console.warn('[intent khu] dữ liệu không có khu/ten_khu', beData);
+          return;
+        }
+        this.khuChange.emit(khu);
+        this.modeChange.emit('hang');    // chuyển tới chọn hàng
+        break;
+      }
+
+      default: {
+        // Không có intent (None) hoặc intent lạ
+        const t = ai.text?.trim();
+        if (t) alert(`🤖 Tôi nghe: "${t}". Chưa nhận ra yêu cầu.`);
+        else alert('🤖 Không nhận ra yêu cầu.');
+      }
+    }
+  }
+
+  // =========================
+  // Helpers cho intent
+  // =========================
+  private asFeature(x: any): any | null {
+    return x && typeof x === 'object' && 'properties' in x ? x : null;
+  }
+
+  private extractKhuHangO(x: any): { ten_khu: string; ten_hang: string; ten_o: string } | null {
+    // Hỗ trợ 2 dạng: Feature GeoJSON ({properties:{...}}) hoặc object phẳng
+    const p = x?.properties ?? x;
+    const ten_khu = p?.ten_khu ?? p?.khu ?? p?.['tenKhu'];
+    const ten_hang = p?.ten_hang ?? p?.hang ?? p?.['tenHang'];
+    const ten_o = p?.ten_o ?? p?.o ?? p?.['tenO'];
+    if (!ten_khu || !ten_hang || !ten_o) return null;
+    return { ten_khu: String(ten_khu), ten_hang: String(ten_hang), ten_o: String(ten_o) };
+    }
+
+  private extractKhuHang(x: any): { ten_khu: string; ten_hang: string } | null {
+    const p = x?.properties ?? x;
+    const ten_khu = p?.ten_khu ?? p?.khu ?? p?.['tenKhu'];
+    const ten_hang = p?.ten_hang ?? p?.hang ?? p?.['tenHang'];
+    if (!ten_khu || !ten_hang) return null;
+    return { ten_khu: String(ten_khu), ten_hang: String(ten_hang) };
+  }
+
+  private extractKhu(x: any): string | null {
+    const p = x?.properties ?? x;
+    const khu = p?.khu ?? p?.ten_khu ?? p?.['tenKhu'];
+    return khu ? String(khu) : null;
+  }
+
+  // =========================
   // Low-level audio
   // =========================
   private async startRecording() {
     if (this.state === 'recording') return;
-    console.time('[rec] getUserMedia');
-
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    console.timeEnd('[rec] getUserMedia');
-
     this.audioCtx = new AudioContext({ sampleRate: this.SAMPLE_RATE });
-
-    if (this.audioCtx.state === 'suspended') {
-      console.time('[rec] audioCtx.resume');
-      await this.audioCtx.resume();
-      console.timeEnd('[rec] audioCtx.resume');
-    }
-
+    if (this.audioCtx.state === 'suspended') await this.audioCtx.resume();
     this.source = this.audioCtx.createMediaStreamSource(stream);
-
-    // analyser cho waveform
     this.analyser = this.audioCtx.createAnalyser();
     this.analyser.fftSize = 2048;
     this.source.connect(this.analyser);
 
-    // thu PCM để encode WAV
     this.processor = this.audioCtx.createScriptProcessor(4096, 1, 1);
     this.chunks = [];
     this.processor.onaudioprocess = (ev) => {
-      // copy channel 0
       this.chunks.push(new Float32Array(ev.inputBuffer.getChannelData(0)));
     };
     this.source.connect(this.processor);
-    // kết nối đến destination để đảm bảo onaudioprocess được gọi
     this.processor.connect(this.audioCtx.destination);
 
     this.state = 'recording';
@@ -396,16 +376,14 @@ export class HeaderComponent {
 
   private async cleanupRecording() {
     this.stopWaveLoop();
-    try { this.processor?.disconnect(); } catch { }
-    try { this.source?.disconnect(); } catch { }
-    try { this.analyser?.disconnect(); } catch { }
-    try { await this.audioCtx?.close(); } catch { }
-
+    try { this.processor?.disconnect(); } catch {}
+    try { this.source?.disconnect(); } catch {}
+    try { this.analyser?.disconnect(); } catch {}
+    try { await this.audioCtx?.close(); } catch {}
     (this.processor as any) = undefined;
     (this.source as any) = undefined;
     (this.analyser as any) = undefined;
     (this.audioCtx as any) = undefined;
-
     this.state = 'idle';
     clearInterval(this.timerId);
   }
@@ -424,10 +402,7 @@ export class HeaderComponent {
   // =========================
   private startWaveLoop() {
     const svg = this.waveSvg?.nativeElement;
-    if (!svg || !this.analyser) {
-      console.warn('[wave] svg/analyser not ready');
-      return;
-    }
+    if (!svg || !this.analyser) return;
 
     const stems = Array.from(svg.querySelectorAll<SVGLineElement>('line.stem'));
     const bins = new Uint8Array(this.analyser.frequencyBinCount);
@@ -444,9 +419,8 @@ export class HeaderComponent {
         const end = Math.min(bins.length, start + step);
         let sum = 0; for (let j = start; j < end; j++) sum += bins[j];
         const avg = sum / (end - start || 1);          // 0..255
-
-        const norm = Math.min(1, (avg / 255) * 1.25);  // 0..1
-        const amp = Math.max(2, norm * maxHalf);       // px mỗi phía
+        const norm = Math.min(1, (avg / 255) * 1.25);
+        const amp = Math.max(2, norm * maxHalf);
         const yTop = (this.centerY - amp).toFixed(1);
         const yBot = (this.centerY + amp).toFixed(1);
 
@@ -459,9 +433,8 @@ export class HeaderComponent {
       this.rafId = requestAnimationFrame(tick);
     };
 
-    this.stopWaveLoop(); // dừng loop cũ nếu còn
+    this.stopWaveLoop();
     this.rafId = requestAnimationFrame(tick);
-    console.log('[wave] start');
   }
 
   private stopWaveLoop() {
@@ -474,9 +447,6 @@ export class HeaderComponent {
       l.setAttribute('y1', String(this.centerY));
       l.setAttribute('y2', String(this.centerY));
     });
-
-    // không log quá nhiều mỗi lần stop, chỉ 1 dòng
-    console.log('[wave] stop');
   }
 
   // =========================
@@ -508,12 +478,24 @@ export class HeaderComponent {
   }
 
   private async finalizeToFile(): Promise<File> {
-    // Dừng ghi trước khi gộp samples
     await this.cleanupRecording();
     const samples = this.merge(this.chunks);
     const wav = this.encodeWav(samples, this.SAMPLE_RATE);
     const blob = new Blob([wav], { type: 'audio/wav' });
-    const file = new File([blob], `rec_${Date.now()}.wav`, { type: 'audio/wav' });
-    return file;
+    return new File([blob], `rec_${Date.now()}.wav`, { type: 'audio/wav' });
+  }
+
+  // =========================
+  // Helpers
+  // =========================
+  private extractFilenameFromUpload(resp: UploadRespOld | UploadRespNew | any): string | null {
+    if (resp && typeof resp === 'object' && 'ok' in resp && 'filename' in resp && resp.ok && resp.filename) {
+      return String(resp.filename);
+    }
+    if (resp && typeof resp === 'object' && typeof resp.file_url === 'string') {
+      const seg = resp.file_url.split('/').filter(Boolean);
+      return seg.length ? seg[seg.length - 1] : null;
+    }
+    return null;
   }
 }

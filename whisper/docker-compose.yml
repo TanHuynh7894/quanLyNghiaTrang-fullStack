@@ -16,19 +16,16 @@ services:
       CT2_DEVICE: "cuda"
       CT2_COMPUTE_TYPE: "float16"
       HF_HOME: "/root/.cache/huggingface"
-      # Dùng host.docker.internal để gọi BE trên máy host (Windows/macOS)
-      BE_BASE_URL: "http://host.docker.internal:5000"
+      BE_BASE_URL: "http://localhost:5000"
       LOG_LEVEL: "INFO"
-      TAGGER_BACKEND: "none"      # "seq2seq" | "gec_tagger" | "none"
+      TAGGER_BACKEND: "none"      
       TAGGER_MODEL: ""
       TAGGER_DEVICE: "cuda"
 
     volumes:
       - "E:/D/vnpt/quanLyNghiaTrang_1/whisper/.cache/huggingface:/root/.cache/huggingface"
       - "E:/D/vnpt/quanLyNghiaTrang_1/whisper/server/app.py:/app/app.py:ro"
-      # - "E:/D/vnpt/quanLyNghiaTrang_1/whisper/models/tagger:/models/tagger:ro"  # nếu dùng tagging local
 
-    # Cách đúng cho GPU trong Docker Compose hiện đại:
     gpus: "all"
 
     restart: unless-stopped
