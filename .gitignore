@@ -43,3 +43,7 @@ __screenshots__/
 Thumbs.db
 
 whisper/.cache/
+vietnamese_ner_bert/.venv/
+.venv/
+venv/
+env/
