@@ -1,4 +1,3 @@
-// src/models/voice-notes/voice-notes.service.ts
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DeepPartial, Repository } from 'typeorm';
@@ -45,6 +44,39 @@ export class VoiceNotesService {
     }
   }
 
+  /**
+   * Xoá file cũ nhất trong uploads/voice (trừ file vừa lưu)
+   */
+  private async cleanupOldestFile(skipFilename: string) {
+    try {
+      const files = await fsp.readdir(this.voiceDir);
+      const candidates = files.filter((f) => f !== skipFilename);
+      if (candidates.length === 0) return;
+
+      const stats = await Promise.all(
+        candidates.map(async (name) => {
+          const fullPath = join(this.voiceDir, name);
+          const s = await fsp.stat(fullPath);
+          return { name, fullPath, ctimeMs: s.ctimeMs };
+        }),
+      );
+
+      // sắp xếp tăng dần theo thời gian tạo → file lâu nhất đầu tiên
+      stats.sort((a, b) => a.ctimeMs - b.ctimeMs);
+      const oldest = stats[0];
+      if (!oldest) return;
+
+      this.logger.log(`[cleanup] removing oldest file: ${oldest.name}`);
+      await fsp
+        .unlink(oldest.fullPath)
+        .catch((err) =>
+          this.logger.warn(`[cleanup] failed: ${getErrorMessage(err)}`),
+        );
+    } catch (err) {
+      this.logger.warn(`[cleanup] error: ${getErrorMessage(err)}`);
+    }
+  }
+
   async saveRaw(filePath: string, originalName: string) {
     if (!filePath || !originalName) {
       throw new BadRequestException('Invalid upload payload');
@@ -74,6 +106,9 @@ export class VoiceNotesService {
     } catch (err) {
       this.logger.warn(`saveRaw: repo.save failed: ${getErrorMessage(err)}`);
     }
+
+    // DỌN FILE CŨ SAU KHI LƯU MỚI
+    await this.cleanupOldestFile(outName);
 
     return {
       ok: true,
