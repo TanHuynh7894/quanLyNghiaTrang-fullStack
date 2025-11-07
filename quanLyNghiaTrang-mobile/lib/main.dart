@@ -393,7 +393,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
         layer: _hangFills,
         outline: _HANG_OUTLINE,
         opacity: _HANG_OPACITY,
-        clearBefore: true,
+        clearBefore: false,
         fitCamera: true,
         colorResolver: (_) => _HANG_FILL,
       );
