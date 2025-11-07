@@ -92,7 +92,7 @@ export class OService {
       .addSelect('ST_AsGeoJSON(o.toa_do, 6)', 'geojson')
       .where('o.ma_khu = :ma_khu', { ma_khu })
       .andWhere('o.ma_hang = :ma_hang', { ma_hang })
-      .orderBy('o.ten_o', 'ASC')
+      .orderBy('(o.ten_o)::integer', 'ASC')
       .getRawMany<ORaw>();
 
     const features = await Promise.all(
