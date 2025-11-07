@@ -7,6 +7,7 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 
 import 'status_colors.dart';
 import 'map_effects.dart';
+import 'o_detail_sheet.dart'; // gọi UI chi tiết từ file tách riêng
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -217,7 +218,8 @@ class _FullScreenMapState extends State<FullScreenMap> {
         _snack("Không lấy được chi tiết ô.");
         return;
       }
-      _showODetailSheet(detail, tenKhu, tenHang, tenO);
+      // mở UI chi tiết từ file tách riêng
+      ODetailSheet.show(context, detail, tenKhu, tenHang, tenO);
       return;
     }
 
@@ -247,85 +249,6 @@ class _FullScreenMapState extends State<FullScreenMap> {
     }
   }
 
-  void _showODetailSheet(dynamic detail, String tenKhu, String tenHang, String tenO) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (ctx) {
-      final pretty = const JsonEncoder.withIndent('  ').convert(detail);
-
-      return DraggableScrollableSheet(
-        initialChildSize: 0.55,   // mở ra khoảng 55% màn hình
-        minChildSize: 0.35,
-        maxChildSize: 0.92,
-        expand: false,
-        builder: (ctx, scrollCtl) {
-          return SafeArea(
-            child: CustomScrollView(
-              controller: scrollCtl,
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            "Ô $tenKhu/$tenHang/$tenO",
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text("Đóng"),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // khối thông tin chính – cuộn dọc, và JSON cho phép cuộn ngang
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.black12),
-                      ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal, // tránh wrap dòng → không tràn
-                        child: SelectableText(
-                          pretty,
-                          style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-                          // softWrap false để không bẻ dòng gây tràn dọc
-                          // nhưng vì ta cho cuộn ngang nên vẫn xem được hết
-                          // ignore: deprecated_member_use
-                          // (nếu cần) softWrap: false,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    },
-  );
-}
-
-
   // ===================== Logic chọn (dropdown & nội bộ) =====================
   Future<void> _onSelectKhu(String val) async {
     _khu = val;
@@ -340,7 +263,6 @@ class _FullScreenMapState extends State<FullScreenMap> {
 
     final featKhu = await _fetchKhu(val);
     if (featKhu != null) {
-      // Vẽ khu (không cần meta chi tiết ở đây, nhưng vẫn có thể)
       await fx.renderLayer(
         data: featKhu,
         layer: _khuFills,
@@ -393,7 +315,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
         layer: _hangFills,
         outline: _HANG_OUTLINE,
         opacity: _HANG_OPACITY,
-        clearBefore: false,
+        clearBefore: false, //giữ các hàng khác, chỉ thêm/zoom hàng được chọn
         fitCamera: true,
         colorResolver: (_) => _HANG_FILL,
       );
@@ -451,7 +373,10 @@ class _FullScreenMapState extends State<FullScreenMap> {
         "ten_hang": _hang!,
         "ten_o": val,
       });
-      if (detail != null) _showODetailSheet(detail, _khu!, _hang!, val);
+      if (detail != null) {
+        //mở UI chi tiết từ file tách riêng
+        ODetailSheet.show(context, detail, _khu!, _hang!, val);
+      }
     }
   }
 
@@ -463,7 +388,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
 
   Widget _dimIfDisabled({required bool enabled, required Widget child}) {
     return Opacity(opacity: enabled ? 1.0 : 0.45, child: child);
-    }
+  }
 
   Widget _ddWrapper(Widget child) {
     return Container(
