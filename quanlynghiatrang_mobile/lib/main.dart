@@ -9,7 +9,7 @@ import 'status_colors.dart';
 import 'map_effects.dart';
 import 'o_detail_sheet.dart';
 
-// 👇 dùng service flutter_sound
+// 👇 dùng service flutter_sound + AI intent
 import 'audio_note_service.dart';
 
 void main() {
@@ -62,7 +62,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
   late final MapEffects fx;
   bool _styleLoaded = false;
 
-  // ===== AUDIO (flutter_sound) =====
+  // ===== AUDIO (flutter_sound + AI) =====
   final _audio = AudioNoteServiceFS(baseUrl: 'http://10.0.2.2:5000');
   bool get _isRec => _audio.isRecording;
 
@@ -128,7 +128,8 @@ class _FullScreenMapState extends State<FullScreenMap> {
 
   Future<dynamic> _getAllKhu() => _get("/khu");
   Future<dynamic> _getAllHang(String khu) => _get("/hang", {"ten_khu": khu});
-  Future<dynamic> _getAllO(String khu, String hang) => _get("/o", {"ten_khu": khu, "ten_hang": hang});
+  Future<dynamic> _getAllO(String khu, String hang) =>
+      _get("/o", {"ten_khu": khu, "ten_hang": hang});
 
   Future<Map<String, dynamic>?> _fetchKhu(String tenKhu) async {
     final data = await _get("/khu", {"ten_khu": tenKhu});
@@ -142,7 +143,8 @@ class _FullScreenMapState extends State<FullScreenMap> {
     return null;
   }
 
-  Future<Map<String, dynamic>?> _fetchOGeom(String khu, String hang, String o) async {
+  Future<Map<String, dynamic>?> _fetchOGeom(
+      String khu, String hang, String o) async {
     final data = await _get("/o", {"ten_khu": khu, "ten_hang": hang, "ten_o": o});
     if (data is Map) return Map<String, dynamic>.from(data);
     return null;
@@ -270,7 +272,8 @@ class _FullScreenMapState extends State<FullScreenMap> {
     setState(() {});
     await fx.clearFills(_hangFills);
     await fx.clearFills(_oFills);
-    _hangMeta.clear(); _oMeta.clear();
+    _hangMeta.clear();
+    _oMeta.clear();
 
     final featKhu = await _fetchKhu(val);
     if (featKhu != null) {
@@ -303,7 +306,9 @@ class _FullScreenMapState extends State<FullScreenMap> {
     if (hangData is Map && hangData["features"] is List) {
       for (final f in hangData["features"]) {
         final p = (f is Map) ? f["properties"] : null;
-        if (p is Map && p["ten_hang"] != null) set.add(p["ten_hang"].toString());
+        if (p is Map && p["ten_hang"] != null) {
+          set.add(p["ten_hang"].toString());
+        }
       }
     }
     _hangList = set.toList()..sort();
@@ -336,14 +341,17 @@ class _FullScreenMapState extends State<FullScreenMap> {
     if (oData is Map && oData["features"] is List) {
       for (final f in oData["features"]) {
         final p = (f is Map) ? f["properties"] : null;
-        if (p is Map && p["ten_o"] != null) set.add(p["ten_o"].toString());
+        if (p is Map && p["ten_o"] != null) {
+          set.add(p["ten_o"].toString());
+        }
       }
     }
     _oList = set.toList()..sort();
     setState(() {});
 
     if (oData != null) {
-      final toDraw = (_selectedStatusId == null) ? oData : _filterOByStatus(oData);
+      final toDraw =
+          (_selectedStatusId == null) ? oData : _filterOByStatus(oData);
       final metas = await fx.renderLayerWithMeta(
         data: toDraw,
         targetLayer: _oFills,
@@ -388,20 +396,135 @@ class _FullScreenMapState extends State<FullScreenMap> {
     }
   }
 
-  // ===== Mic actions =====
+  // ===================== Helpers cho intent AI =====================
+  Map<String, dynamic>? _asProps(dynamic x) {
+    if (x is Map && x['properties'] is Map) {
+      return Map<String, dynamic>.from(x['properties'] as Map);
+    }
+    if (x is Map) return Map<String, dynamic>.from(x);
+    return null;
+  }
+
+  Map<String, String>? _extractKhuHangO(dynamic x) {
+    final p = _asProps(x);
+    if (p == null) return null;
+    final tenKhu  = (p['ten_khu'] ?? p['khu'] ?? p['tenKhu'])?.toString();
+    final tenHang = (p['ten_hang'] ?? p['hang'] ?? p['tenHang'])?.toString();
+    final tenO    = (p['ten_o'] ?? p['o'] ?? p['tenO'])?.toString();
+    if (tenKhu == null || tenHang == null || tenO == null) return null;
+    return {
+      'ten_khu': tenKhu,
+      'ten_hang': tenHang,
+      'ten_o': tenO,
+    };
+  }
+
+  Map<String, String>? _extractKhuHangOnly(dynamic x) {
+    final p = _asProps(x);
+    if (p == null) return null;
+    final tenKhu  = (p['ten_khu'] ?? p['khu'] ?? p['tenKhu'])?.toString();
+    final tenHang = (p['ten_hang'] ?? p['hang'] ?? p['tenHang'])?.toString();
+    if (tenKhu == null || tenHang == null) return null;
+    return {
+      'ten_khu': tenKhu,
+      'ten_hang': tenHang,
+    };
+  }
+
+  String? _extractKhuOnly(dynamic x) {
+    final p = _asProps(x);
+    if (p == null) return null;
+    final tenKhu = (p['khu'] ?? p['ten_khu'] ?? p['tenKhu'])?.toString();
+    return tenKhu;
+  }
+
+  // ===================== Handle intent từ AI =====================
+  Future<void> _handleAiIntent(AiJson ai, dynamic beData) async {
+    final text = ai.text.trim();
+    if (ai.intent == null) {
+      if (text.isNotEmpty) {
+        _snack('🤖 Tôi nghe: "$text". Chưa nhận ra yêu cầu.');
+      } else {
+        _snack('🤖 Không nhận ra yêu cầu.');
+      }
+      return;
+    }
+
+    switch (ai.intent) {
+      // ---- O (đầy đủ khu + hàng + ô) ----
+      case 'o_ten_nguoi_mat':
+      case 'o_dia_chi':
+      case 'o_ten': {
+        final info = _extractKhuHangO(beData);
+        if (info == null) {
+          _snack('Dữ liệu O không đầy đủ ten_khu/ten_hang/ten_o');
+          return;
+        }
+        final tenKhu  = info['ten_khu']!;
+        final tenHang = info['ten_hang']!;
+        final tenO    = info['ten_o']!;
+
+        await _onSelectKhu(tenKhu);
+        await _onSelectHang(tenHang);
+        await _onSelectO(tenO);
+        break;
+      }
+
+      // ---- HÀNG (khu + hàng) ----
+      case 'hang_dia_chi':
+      case 'hang_ten': {
+        final info = _extractKhuHangOnly(beData);
+        if (info == null) {
+          _snack('Dữ liệu Hàng không đầy đủ ten_khu/ten_hang');
+          return;
+        }
+        final tenKhu  = info['ten_khu']!;
+        final tenHang = info['ten_hang']!;
+
+        await _onSelectKhu(tenKhu);
+        await _onSelectHang(tenHang);
+        break;
+      }
+
+      // ---- KHU ----
+      case 'khu': {
+        final tenKhu = _extractKhuOnly(beData);
+        if (tenKhu == null) {
+          _snack('Dữ liệu Khu không có khu/ten_khu');
+          return;
+        }
+        await _onSelectKhu(tenKhu);
+        break;
+      }
+
+      // ---- Intent lạ ----
+      default: {
+        if (text.isNotEmpty) {
+          _snack('🤖 Tôi nghe: "$text". Intent "${ai.intent}" chưa hỗ trợ.');
+        } else {
+          _snack('🤖 Intent "${ai.intent}" chưa hỗ trợ.');
+        }
+      }
+    }
+  }
+
+  // ===== Mic actions (ghi âm + AI + map) =====
   Future<void> _onMicTap() async {
     try {
       if (!_isRec) {
         await _audio.start();
-        _snack('Đang ghi: ${_audio.currentName}');
+        _snack('Đang ghi: ${_audio.currentName ?? ''}');
         setState(() {});
       } else {
-        final res = await _audio.stopAndUpload();
-        _snack(res);
+        _snack('Đang xử lý AI...');
+        final result = await _audio.stopAndTranscribe();
+        _snack('AI xong: ${result.ai.text}');
+        await _handleAiIntent(result.ai, result.beData);
         setState(() {});
       }
     } catch (e) {
-      _snack('Mic error: $e');
+      _snack('Mic/AI error: $e');
+      setState(() {});
     }
   }
 
@@ -540,7 +663,9 @@ class _FullScreenMapState extends State<FullScreenMap> {
                               onPressed: _onMicTap,
                               icon: Icon(_isRec ? Icons.stop_circle : Icons.mic),
                               color: _isRec ? Colors.redAccent : Colors.black87,
-                              tooltip: _isRec ? 'Dừng & Upload' : 'Ghi chú giọng nói',
+                              tooltip: _isRec
+                                  ? 'Dừng & gửi AI'
+                                  : 'Ghi chú giọng nói',
                             ),
                             const SizedBox(width: 8),
                           ],
@@ -562,14 +687,24 @@ class _FullScreenMapState extends State<FullScreenMap> {
                             child: DropdownButton<String?>(
                               isDense: true,
                               value: _khu,
-                              hint: const Text("Chọn khu", style: TextStyle(fontSize: 14)),
+                              hint: const Text(
+                                "Chọn khu",
+                                style: TextStyle(fontSize: 14),
+                              ),
                               items: _khuList
-                                  .map((e) => DropdownMenuItem<String?>(
-                                        value: e,
-                                        child: Text(e, style: const TextStyle(fontSize: 14)),
-                                      ))
+                                  .map(
+                                    (e) => DropdownMenuItem<String?>(
+                                      value: e,
+                                      child: Text(
+                                        e,
+                                        style:
+                                            const TextStyle(fontSize: 14),
+                                      ),
+                                    ),
+                                  )
                                   .toList(),
-                              onChanged: _khuEnabled ? (v) => _onSelectKhu(v!) : null,
+                              onChanged:
+                                  _khuEnabled ? (v) => _onSelectKhu(v!) : null,
                               icon: const Icon(Icons.arrow_drop_down),
                             ),
                           ),
@@ -585,14 +720,25 @@ class _FullScreenMapState extends State<FullScreenMap> {
                             child: DropdownButton<String?>(
                               isDense: true,
                               value: _hang,
-                              hint: const Text("Chọn hàng", style: TextStyle(fontSize: 14)),
+                              hint: const Text(
+                                "Chọn hàng",
+                                style: TextStyle(fontSize: 14),
+                              ),
                               items: _hangList
-                                  .map((e) => DropdownMenuItem<String?>(
-                                        value: e,
-                                        child: Text(e, style: const TextStyle(fontSize: 14)),
-                                      ))
+                                  .map(
+                                    (e) => DropdownMenuItem<String?>(
+                                      value: e,
+                                      child: Text(
+                                        e,
+                                        style:
+                                            const TextStyle(fontSize: 14),
+                                      ),
+                                    ),
+                                  )
                                   .toList(),
-                              onChanged: _hangEnabled ? (v) => _onSelectHang(v!) : null,
+                              onChanged: _hangEnabled
+                                  ? (v) => _onSelectHang(v!)
+                                  : null,
                               icon: const Icon(Icons.arrow_drop_down),
                             ),
                           ),
@@ -608,14 +754,25 @@ class _FullScreenMapState extends State<FullScreenMap> {
                             child: DropdownButton<String?>(
                               isDense: true,
                               value: _o,
-                              hint: const Text("Chọn ô", style: TextStyle(fontSize: 14)),
+                              hint: const Text(
+                                "Chọn ô",
+                                style: TextStyle(fontSize: 14),
+                              ),
                               items: _oList
-                                  .map((e) => DropdownMenuItem<String?>(
-                                        value: e,
-                                        child: Text(e, style: const TextStyle(fontSize: 14)),
-                                      ))
+                                  .map(
+                                    (e) => DropdownMenuItem<String?>(
+                                      value: e,
+                                      child: Text(
+                                        e,
+                                        style:
+                                            const TextStyle(fontSize: 14),
+                                      ),
+                                    ),
+                                  )
                                   .toList(),
-                              onChanged: _oEnabled ? (v) => _onSelectO(v!) : null,
+                              onChanged: _oEnabled
+                                  ? (v) => _onSelectO(v!)
+                                  : null,
                               icon: const Icon(Icons.arrow_drop_down),
                             ),
                           ),
@@ -645,7 +802,10 @@ class _FullScreenMapState extends State<FullScreenMap> {
                               items: [
                                 const DropdownMenuItem<String?>(
                                   value: null,
-                                  child: Text("— Tất cả tình trạng —", style: TextStyle(fontSize: 14)),
+                                  child: Text(
+                                    "— Tất cả tình trạng —",
+                                    style: TextStyle(fontSize: 14),
+                                  ),
                                 ),
                                 ..._statusList.map((it) {
                                   final id    = it['id']!;
@@ -656,11 +816,14 @@ class _FullScreenMapState extends State<FullScreenMap> {
                                     child: Row(
                                       children: [
                                         Container(
-                                          width: 12, height: 12,
-                                          margin: const EdgeInsets.only(right: 8),
+                                          width: 12,
+                                          height: 12,
+                                          margin:
+                                              const EdgeInsets.only(right: 8),
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
-                                            border: Border.all(color: Colors.black12),
+                                            border: Border.all(
+                                                color: Colors.black12),
                                             color: _hexToColor(color),
                                           ),
                                         ),
@@ -668,36 +831,47 @@ class _FullScreenMapState extends State<FullScreenMap> {
                                           child: Text(
                                             name,
                                             overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(fontSize: 14)),
+                                            style:
+                                                const TextStyle(fontSize: 14),
+                                          ),
                                         ),
                                       ],
                                     ),
                                   );
                                 }),
                               ],
-                              onChanged: _statusEnabled ? (v) async {
-                                setState(() => _selectedStatusId = v);
-                                if (_khu != null && _hang != null) {
-                                  final oData = await _getAllO(_khu!, _hang!);
-                                  if (oData != null) {
-                                    final toDraw = (_selectedStatusId == null)
-                                        ? oData
-                                        : _filterOByStatus(oData);
-                                    final metas = await fx.renderLayerWithMeta(
-                                      data: toDraw,
-                                      targetLayer: _oFills,
-                                      outline: _O_OUTLINE,
-                                      opacity: _O_OPACITY,
-                                      clearBefore: true,
-                                      fitCamera: false,
-                                      colorResolver: (f) => StatusColorService.resolveFromFeature(f),
-                                    );
-                                    _oMeta
-                                      ..clear()
-                                      ..addEntries(metas.map((m) => MapEntry(m.fill, m.feature)));
-                                  }
-                                }
-                              } : null,
+                              onChanged: _statusEnabled
+                                  ? (v) async {
+                                      setState(
+                                          () => _selectedStatusId = v);
+                                      if (_khu != null && _hang != null) {
+                                        final oData =
+                                            await _getAllO(_khu!, _hang!);
+                                        if (oData != null) {
+                                          final toDraw =
+                                              (_selectedStatusId == null)
+                                                  ? oData
+                                                  : _filterOByStatus(oData);
+                                          final metas =
+                                              await fx.renderLayerWithMeta(
+                                            data: toDraw,
+                                            targetLayer: _oFills,
+                                            outline: _O_OUTLINE,
+                                            opacity: _O_OPACITY,
+                                            clearBefore: true,
+                                            fitCamera: false,
+                                            colorResolver: (f) =>
+                                                StatusColorService
+                                                    .resolveFromFeature(f),
+                                          );
+                                          _oMeta
+                                            ..clear()
+                                            ..addEntries(metas.map((m) =>
+                                                MapEntry(m.fill, m.feature)));
+                                        }
+                                      }
+                                    }
+                                  : null,
                               icon: const Icon(Icons.arrow_drop_down),
                             ),
                           ),
@@ -750,7 +924,9 @@ class _FullScreenMapState extends State<FullScreenMap> {
           if (allKhu is Map && allKhu["features"] is List) {
             for (final f in allKhu["features"]) {
               final p = (f is Map) ? f["properties"] : null;
-              if (p is Map && p["ten_khu"] != null) set.add(p["ten_khu"].toString());
+              if (p is Map && p["ten_khu"] != null) {
+                set.add(p["ten_khu"].toString());
+              }
             }
           }
           _khuList = set.toList()..sort();

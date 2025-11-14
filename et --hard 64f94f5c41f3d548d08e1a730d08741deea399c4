@@ -1,0 +1,161 @@
+[33mcommit 64f94f5c41f3d548d08e1a730d08741deea399c4[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Mon Nov 10 16:18:31 2025 +0700
+
+    update/mobile thu am va upload xong
+
+[33mcommit 35a8500ea25c7acc97e67d6cc5470abf004e0294[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Fri Nov 7 14:35:58 2025 +0700
+
+    update/ function show information of o
+
+[33mcommit bbd120ed9595daa0b10757d47155535ccf297e33[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Fri Nov 7 10:15:33 2025 +0700
+
+    fix/ fix api media in order to load image
+
+[33mcommit 03caef2230e0b91f492c0e4bbcf34bb5558f872a[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Fri Nov 7 09:17:45 2025 +0700
+
+    insert/mobile
+
+[33mcommit 4c3d0806f6f6ce158f42de7a4427c6c05fb081f7[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Thu Oct 30 09:48:39 2025 +0700
+
+    update/voice-notes.service.ts thêm cleanupOldestFile
+
+[33mcommit 2ab1ca50070b2db04b0407ac5bd6d914733496c2[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Thu Oct 30 09:21:03 2025 +0700
+
+    Remove local Python venv from repo and ignore it
+
+[33mcommit d1797814ae3e61e85260a1eb26ffd0b716127f53[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Thu Oct 30 09:16:36 2025 +0700
+
+    Fix vietnamese_ner_bert normal folder tracking
+
+[33mcommit 733bd1b8602ad612847bfeba6862efe3da8f638d[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Thu Oct 30 09:09:33 2025 +0700
+
+    update/func search with AI voice
+
+[33mcommit 4bf7e2fff3f73c1812ef7700ad8214450784d59b[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Wed Oct 22 16:53:35 2025 +0700
+
+    update/voice-search, AI
+
+[33mcommit 832830b35bf85908cd9502830311382038b98a84[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Wed Oct 22 11:40:13 2025 +0700
+
+    update/whisper
+
+[33mcommit c9174c33f0819ff3f464c682704dba8ac74a802f[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Mon Oct 20 16:19:56 2025 +0700
+
+    update/search
+
+[33mcommit 5c3998c6fd4652dfa72d6d6f6bcb3c7c663ca806[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Mon Oct 20 15:01:54 2025 +0700
+
+    insert/api o?ten_nguoi_mat
+
+[33mcommit 76d69556eeefeccb656492eff4d079a3828e5855[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Mon Oct 20 13:20:16 2025 +0700
+
+    insert/models
+
+[33mcommit 0fdfdff00c620c7854b2fee3e44871e462b80cd5[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Fri Oct 17 14:22:06 2025 +0700
+
+    update/AI từ whisper sang PhoWhisper và đổi header-map sang WAV PMC
+
+[33mcommit fd181ee8777abbfc6164e8182c6f8918e4d8f3e5[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Wed Oct 15 13:20:33 2025 +0700
+
+    update/db them bảng voice_notes
+
+[33mcommit 3c51322e00f63c094b271d69b271b7d59c98a427[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Wed Oct 15 11:40:29 2025 +0700
+
+    insert/whisper
+
+[33mcommit d61e5fab8448d3ee3472afe8dfeaaf3985f6f051[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Mon Oct 13 11:46:21 2025 +0700
+
+    update/fe them routers
+
+[33mcommit 5c2152a327500edd464d093719b3de451da6017a[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Fri Oct 10 14:58:07 2025 +0700
+
+    update/map them logic cho function tim phan mo theo tinh trang
+
+[33mcommit 0baf7cd60996b601863fdcce47895fe65aa0fd28[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Fri Oct 10 13:39:35 2025 +0700
+
+    update/map them tinh trang mo phan (chua xu ly logic)
+
+[33mcommit 65058ad0afc13a56cfcca420a847d195ffa2e275[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Fri Oct 10 11:55:49 2025 +0700
+
+    insert/tinh-trang-mo-phan
+
+[33mcommit 5b9ea6dbf36db0057f176a1cf0264346c51d782f[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Fri Oct 10 09:52:15 2025 +0700
+
+    fix khung search
+
+[33mcommit 9f1b7c5315114d8c343fb8492cc5abd929706677[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Wed Oct 8 15:25:43 2025 +0700
+
+    them detal mo_phan
+
+[33mcommit 89b89e5a4c0c79d7427f46cbf06bbab368c55873[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Mon Oct 6 16:47:29 2025 +0700
+
+    setup fe
+
+[33mcommit a9cec836fcd82691f7e4829e3dbdb94346b5d57d[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Mon Oct 6 15:57:18 2025 +0700
+
+    update api o
+
+[33mcommit d3821c03ad7df7e13a88ed66c0654b4cb5a3d398[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Mon Oct 6 13:28:03 2025 +0700
+
+    api cho map-khu-hang-o
+
+[33mcommit 78af0d512dce336445be2ae8201e28e1ecdf061f[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Fri Oct 3 16:37:50 2025 +0700
+
+    setup be
+
+[33mcommit cf2a3a5f3116dd50732bb31c87dc51266fbc1ea1[m
+Author: TanHuynh <tanhuynh7894.work@gmail.com>
+Date:   Fri Oct 3 15:43:41 2025 +0700
+
+    first commit
