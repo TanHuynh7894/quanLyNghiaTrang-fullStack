@@ -1,13 +1,15 @@
 // lib/status_colors.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Quản lý màu theo tình trạng mộ phần.
 /// - Endpoint cố định: http://10.0.2.2:5000/tinh-trang-mo-phan
 /// - Hỗ trợ dữ liệu dạng List hoặc FeatureCollection.
 /// - Ưu tiên dùng field: ma_tinh_trang, color, (tùy API có) ten_tinh_trang.
 class StatusColorService {
-  static const String _endpoint = 'http://10.0.2.2:5000/tinh-trang-mo-phan';
+  static String get _endpoint =>
+      '${dotenv.env['BASE_URL'] ?? 'http://10.0.2.2:5000'}/tinh-trang-mo-phan';
 
   /// id -> #hex
   static Map<String, String> _colorById = {

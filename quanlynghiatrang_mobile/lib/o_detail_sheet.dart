@@ -2,9 +2,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'status_colors.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ODetailSheet {
-  static const String _mediaBase = 'http://10.0.2.2:5000/media';
+  static final String _mediaBase =
+      '${dotenv.env['BASE_URL'] ?? 'http://10.0.2.2:5000'}/media';
 
   /// Tỉ lệ chiều cao sheet so với màn hình (0.5 = 50%)
   static const double kSheetHeightFactor = 0.90; // chỉnh cao/thấp ở đây
@@ -31,6 +34,40 @@ class ODetailSheet {
     final imgUrls = _imageFiles(props, tenKhu, tenHang, tenO);
 
     final statusColor = _statusColorFromMo(mo);
+
+    // ===== Toạ độ mộ (nếu có) =====
+    double? lat = _pickDouble(props, ['lat', 'latitude', 'vi_do']);
+    double? lng = _pickDouble(props, ['lng', 'lon', 'long', 'longitude', 'kinh_do']);
+
+    // Nếu chưa có trong props thì lấy từ geometry (GeoJSON Polygon / MultiPolygon)
+    if ((lat == null || lng == null) && detail is Map && detail['geometry'] is Map) {
+      final geom = detail['geometry'] as Map;
+      final coords = geom['coordinates'];
+
+      if (coords is List && coords.isNotEmpty) {
+        // MultiPolygon: [[[ [lng, lat], ... ]]]
+        // Polygon: [[ [lng, lat], ... ]]
+        dynamic level1 = coords[0];
+        dynamic level2;
+        dynamic point;
+
+        if (level1 is List && level1.isNotEmpty) {
+          level2 = level1[0];
+          if (level2 is List && level2.isNotEmpty) {
+            point = level2[0];
+          }
+        }
+
+        if (point is List && point.length >= 2) {
+          final lngFromGeom = _toDouble(point[0]);
+          final latFromGeom = _toDouble(point[1]);
+          lng ??= lngFromGeom;
+          lat ??= latFromGeom;
+        }
+      }
+    }
+
+    final bool hasLocation = lat != null && lng != null;
 
     showModalBottomSheet(
       context: context,
@@ -138,9 +175,9 @@ class ODetailSheet {
                         ),
                         const SizedBox(height: 16),
 
-                        // CTA (ví dụ)
+                        // CTA (giữ nguyên)
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                           child: SizedBox(
                             width: double.infinity,
                             height: 48,
@@ -158,6 +195,40 @@ class ODetailSheet {
                               child: const Text(
                                 'ĐẶT MUA NGAY',
                                 style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1.2),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // NÚT MỚI: CHỈ ĐƯỜNG TỚI MỘ
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: 44,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: hasLocation
+                                    ? Colors.teal
+                                    : Colors.grey.shade400,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: hasLocation
+                                  ? () => _openDirection(context, lat!, lng!)
+                                  : null,
+                              icon: const Icon(Icons.directions),
+                              label: Text(
+                                hasLocation
+                                    ? 'CHỈ ĐƯỜNG TỚI MỘ'
+                                    : 'KHÔNG CÓ TOẠ ĐỘ ĐỂ CHỈ ĐƯỜNG',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.0,
+                                ),
                               ),
                             ),
                           ),
@@ -300,6 +371,40 @@ class ODetailSheet {
       return Color(int.parse('$aa$rrggbb', radix: 16));
     }
     return const Color(0xFFCCCCCC);
+  }
+
+  // ===== Helpers chỉ đường =====
+  static double? _toDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is double) return v;
+    if (v is int) return v.toDouble();
+    return double.tryParse(v.toString());
+  }
+
+  static double? _pickDouble(Map<String, dynamic> props, List<String> keys) {
+    for (final k in keys) {
+      if (props.containsKey(k)) {
+        final d = _toDouble(props[k]);
+        if (d != null) return d;
+      }
+    }
+    return null;
+  }
+
+  static Future<void> _openDirection(
+      BuildContext context, double lat, double lng) async {
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
+    );
+    final ok = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không mở được ứng dụng bản đồ')),
+      );
+    }
   }
 }
 
