@@ -4,21 +4,21 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:geolocator/geolocator.dart'; // NEW: dùng để lấy GPS
+import 'package:geolocator/geolocator.dart';
 
 import 'status_colors.dart';
 import 'map_effects.dart';
 import 'o_detail_sheet.dart';
-// dùng service flutter_sound + AI intent
 import 'audio_note_service.dart';
+import 'chi_duong.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load biến môi trường từ .env
   await dotenv.load(fileName: ".env");
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -36,7 +36,6 @@ class MapApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      // Khóa textScaleFactor = 1.0 để UI không vỡ trên máy font to
       builder: (context, child) {
         final data = MediaQuery.of(context);
         return MediaQuery(
@@ -74,12 +73,11 @@ class _FullScreenMapState extends State<FullScreenMap> {
   static const _O_OPACITY = 1.0;
 
   // ==== CONFIG từ .env ====
-  // Nếu thiếu trong .env thì fallback về giá trị cũ
   final String _mapTilerKey =
       dotenv.env['MAPTILER_KEY'] ?? '3suk2GO5O2JgkhGmruDP';
   final String _baseUrl = dotenv.env['BASE_URL'] ?? 'http://10.0.2.2:5000';
 
-  final _searchCtl = TextEditingController();
+  final TextEditingController _searchCtl = TextEditingController();
 
   MaplibreMapController? _map;
   late final MapEffects fx;
@@ -91,6 +89,9 @@ class _FullScreenMapState extends State<FullScreenMap> {
 
   // ===== LOCATION BUTTON STATE =====
   bool _locating = false;
+
+  // ===== SERVICE CHỈ ĐƯỜNG =====
+  ChiDuongService? _chiDuong;
 
   // Layer theo Z-order: nền -> khu -> hàng -> ô
   final List<Fill> _nenFills = [];
@@ -109,7 +110,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
   List<String> _oList = [];
   String? _khu, _hang, _o;
 
-  // Preset tình trạng
+  // Preset tình trạng (dùng làm fallback nếu API lỗi)
   static const List<Map<String, String>> _STATUS_PRESET = [
     {
       "ma_tinh_trang": "11111111-2222-3333-4444-000000000004",
@@ -153,16 +154,18 @@ class _FullScreenMapState extends State<FullScreenMap> {
   String get _styleUrl =>
       "https://api.maptiler.com/maps/streets-v2/style.json?key=$_mapTilerKey";
 
+  // ====== RANH GIỚI & CHECK LẦN ĐẦU ======
+  dynamic _boundaryGeoJson;
+  bool _initialLocationChecked = false;
+
   @override
   void initState() {
     super.initState();
     debugPrint('[INIT] FullScreenMap initState');
     fx = MapEffects(context: context);
 
-    // khởi tạo audio service với baseUrl từ .env
     _audio = AudioNoteServiceFS(baseUrl: _baseUrl);
 
-    // init audio + xin quyền mic
     _audio.init().then((_) {
       debugPrint('[AUDIO] init OK');
     }).catchError((e) {
@@ -171,7 +174,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
     });
   }
 
-  // ===================== API (khu/hang/o) =====================
+  // ===================== API (khu/hang/o/ranh) =====================
   Future<dynamic> _get(String path, [Map<String, String>? params]) async {
     final base = Uri.parse(_baseUrl);
     final uri = Uri(
@@ -203,6 +206,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
   Future<dynamic> _getAllHang(String khu) => _get("/hang", {"ten_khu": khu});
   Future<dynamic> _getAllO(String khu, String hang) =>
       _get("/o", {"ten_khu": khu, "ten_hang": hang});
+  Future<dynamic> _getBoundary() => _get("/ranh-gioi");
 
   Future<Map<String, dynamic>?> _fetchKhu(String tenKhu) async {
     final data = await _get("/khu", {"ten_khu": tenKhu});
@@ -228,16 +232,42 @@ class _FullScreenMapState extends State<FullScreenMap> {
     return null;
   }
 
-  // ====== NẠP PRESET TÌNH TRẠNG ======
-  Future<void> _initStatusesFromPreset() async {
-    debugPrint('[STATUS] init from preset');
-    _statusList = _STATUS_PRESET
-        .map((e) => {
-              'id': e['ma_tinh_trang'] ?? '',
-              'name': e['ten_tinh_trang'] ?? (e['ma_tinh_trang'] ?? ''),
-              'color': e['color'] ?? '#cccccc',
-            })
-        .toList();
+  // ====== NẠP TÌNH TRẠNG TỪ API /tinh-trang-mo-phan (fallback preset) ======
+  Future<void> _initStatuses() async {
+    debugPrint('[STATUS] init from /tinh-trang-mo-phan');
+    _statusList = [];
+
+    try {
+      final data = await _get('/tinh-trang-mo-phan');
+      if (data is List) {
+        _statusList = data
+            .whereType<Map>()
+            .map((e) => {
+                  'id': e['ma_tinh_trang']?.toString() ?? '',
+                  'name': e['ten_tinh_trang']?.toString() ??
+                      e['ma_tinh_trang']?.toString() ??
+                      '',
+                  'color': e['color']?.toString() ?? '#cccccc',
+                })
+            .where((m) => m['id']!.isNotEmpty)
+            .toList();
+        debugPrint('[STATUS] loaded from API, count=${_statusList.length}');
+      }
+    } catch (e) {
+      debugPrint('[STATUS] ERROR load from API: $e');
+    }
+
+    if (_statusList.isEmpty) {
+      debugPrint('[STATUS] fallback to preset');
+      _statusList = _STATUS_PRESET
+          .map((e) => {
+                'id': e['ma_tinh_trang'] ?? '',
+                'name': e['ten_tinh_trang'] ?? (e['ma_tinh_trang'] ?? ''),
+                'color': e['color'] ?? '#cccccc',
+              })
+          .toList();
+    }
+
     if (mounted) setState(() {});
   }
 
@@ -550,7 +580,6 @@ class _FullScreenMapState extends State<FullScreenMap> {
     }
 
     switch (ai.intent) {
-      // ---- O (đầy đủ khu + hàng + ô) ----
       case 'o_ten_nguoi_mat':
       case 'o_dia_chi':
       case 'o_ten':
@@ -570,7 +599,6 @@ class _FullScreenMapState extends State<FullScreenMap> {
           break;
         }
 
-      // ---- HÀNG (khu + hàng) ----
       case 'hang_dia_chi':
       case 'hang_ten':
         {
@@ -587,7 +615,6 @@ class _FullScreenMapState extends State<FullScreenMap> {
           break;
         }
 
-      // ---- KHU ----
       case 'khu':
         {
           final tenKhu = _extractKhuOnly(beData);
@@ -599,12 +626,10 @@ class _FullScreenMapState extends State<FullScreenMap> {
           break;
         }
 
-      // ---- Intent lạ ----
       default:
         {
           if (text.isNotEmpty) {
-            _snack(
-                '🤖 Tôi nghe: "$text". Intent "${ai.intent}" chưa hỗ trợ.');
+            _snack('🤖 Tôi nghe: "$text". Intent "${ai.intent}" chưa hỗ trợ.');
           } else {
             _snack('🤖 Intent "${ai.intent}" chưa hỗ trợ.');
           }
@@ -625,6 +650,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
         _snack('Đang xử lý AI...');
         final result = await _audio.stopAndTranscribe();
         _snack('AI xong: ${result.ai.text}');
+
         await _handleAiIntent(result.ai, result.beData);
         setState(() {});
       }
@@ -646,7 +672,246 @@ class _FullScreenMapState extends State<FullScreenMap> {
     return true;
   }
 
-  // ====== ĐỊNH VỊ VỊ TRÍ HIỆN TẠI ======
+  // ====== LOGIC POINT IN POLYGON & CHECK RANH ======
+  bool _pointInPolygon(LatLng point, List<List<double>> polygon) {
+    final double x = point.longitude;
+    final double y = point.latitude;
+
+    bool inside = false;
+    for (int i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      final double xi = polygon[i][0];
+      final double yi = polygon[i][1];
+      final double xj = polygon[j][0];
+      final double yj = polygon[j][1];
+
+      final bool intersect = ((yi > y) != (yj > y)) &&
+          (x <
+              (xj - xi) * (y - yi) /
+                      ((yj - yi) == 0 ? 1e-9 : (yj - yi)) +
+                  xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  bool _isInsideGeometry(LatLng point, Map geom) {
+    final type = geom['type'];
+    final coords = geom['coordinates'];
+
+    if (type == 'Polygon' && coords is List) {
+      if (coords.isEmpty) return false;
+      final outer = coords.first;
+      if (outer is List) {
+        final poly = <List<double>>[];
+        for (final c in outer) {
+          if (c is List && c.length >= 2) {
+            final lon = (c[0] as num).toDouble();
+            final lat = (c[1] as num).toDouble();
+            poly.add([lon, lat]);
+          }
+        }
+        if (poly.length >= 3 && _pointInPolygon(point, poly)) {
+          return true;
+        }
+      }
+    } else if (type == 'MultiPolygon' && coords is List) {
+      for (final polyCoords in coords) {
+        if (polyCoords is List && polyCoords.isNotEmpty) {
+          final outer = polyCoords.first;
+          if (outer is List) {
+            final poly = <List<double>>[];
+            for (final c in outer) {
+              if (c is List && c.length >= 2) {
+                final lon = (c[0] as num).toDouble();
+                final lat = (c[1] as num).toDouble();
+                poly.add([lon, lat]);
+              }
+            }
+            if (poly.length >= 3 && _pointInPolygon(point, poly)) {
+              return true;
+            }
+          }
+        }
+      }
+    } else if (type == 'MultiLineString' && coords is List) {
+      if (coords.isEmpty) return false;
+      final line = coords.first;
+      if (line is List) {
+        final poly = <List<double>>[];
+        for (final c in line) {
+          if (c is List && c.length >= 2) {
+            final lon = (c[0] as num).toDouble();
+            final lat = (c[1] as num).toDouble();
+            poly.add([lon, lat]);
+          }
+        }
+        if (poly.length >= 3 && _pointInPolygon(point, poly)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  // Gom toàn bộ toạ độ (lon, lat) từ GeoJSON bất kỳ
+  List<List<double>> _collectAllCoords(dynamic node) {
+    final result = <List<double>>[];
+
+    void walk(dynamic n) {
+      if (n is Map) {
+        if (n.containsKey('coordinates')) {
+          walk(n['coordinates']);
+        } else {
+          for (final v in n.values) {
+            walk(v);
+          }
+        }
+      } else if (n is List) {
+        if (n.isNotEmpty && n[0] is num && n.length >= 2) {
+          final lon = (n[0] as num).toDouble();
+          final lat = (n[1] as num).toDouble();
+          result.add([lon, lat]);
+        } else {
+          for (final v in n) {
+            walk(v);
+          }
+        }
+      }
+    }
+
+    walk(node);
+    return result;
+  }
+
+  bool _pointInBBox(
+    LatLng p,
+    List<List<double>> coords, {
+    double paddingDeg = 0.0001,
+  }) {
+    if (coords.isEmpty) return false;
+    double minX = coords.first[0];
+    double maxX = coords.first[0];
+    double minY = coords.first[1];
+    double maxY = coords.first[1];
+
+    for (final c in coords) {
+      if (c[0] < minX) minX = c[0];
+      if (c[0] > maxX) maxX = c[0];
+      if (c[1] < minY) minY = c[1];
+      if (c[1] > maxY) maxY = c[1];
+    }
+
+    minX -= paddingDeg;
+    maxX += paddingDeg;
+    minY -= paddingDeg;
+    maxY += paddingDeg;
+
+    final x = p.longitude;
+    final y = p.latitude;
+    return x >= minX && x <= maxX && y >= minY && y <= maxY;
+  }
+
+  bool _isInsideBoundary(LatLng point) {
+    if (_boundaryGeoJson is! Map) return false;
+    final Map root = _boundaryGeoJson as Map;
+
+    bool rayCastHit = false;
+
+    if (root['type'] == 'FeatureCollection') {
+      final feats = root['features'];
+      if (feats is List) {
+        for (final f in feats) {
+          if (f is! Map) continue;
+          final geom = f['geometry'];
+          if (geom is! Map) continue;
+          if (_isInsideGeometry(point, geom)) {
+            rayCastHit = true;
+            break;
+          }
+        }
+      }
+    } else if (root['type'] == 'Feature') {
+      final geom = root['geometry'];
+      if (geom is Map && _isInsideGeometry(point, geom)) {
+        rayCastHit = true;
+      }
+    } else if (root['type'] == 'Polygon' ||
+        root['type'] == 'MultiPolygon' ||
+        root['type'] == 'MultiLineString') {
+      if (_isInsideGeometry(point, root)) {
+        rayCastHit = true;
+      }
+    }
+
+    if (rayCastHit) return true;
+
+    // Fallback: bounding box của toàn bộ toạ độ
+    final allCoords = _collectAllCoords(root);
+    final insideBox = _pointInBBox(point, allCoords, paddingDeg: 0.0002);
+    if (insideBox) {
+      debugPrint(
+        '[BOUNDARY] Ray-cast FAIL nhưng nằm trong bounding-box → treat as inside',
+      );
+      return true;
+    }
+
+    return false;
+  }
+
+  Future<void> _tryCenterOnUserIfInside() async {
+    if (_initialLocationChecked) return;
+    _initialLocationChecked = true;
+
+    if (_map == null) return;
+    if (_boundaryGeoJson == null) {
+      debugPrint('[INIT LOC] Không có boundary, bỏ qua.');
+      return;
+    }
+
+    try {
+      var status = await Permission.locationWhenInUse.status;
+      if (!status.isGranted) {
+        status = await Permission.locationWhenInUse.request();
+      }
+      if (!status.isGranted) {
+        debugPrint('[INIT LOC] Quyền vị trí không được cấp, bỏ qua.');
+        return;
+      }
+
+      if (!await _ensureLocationServiceOn()) {
+        debugPrint('[INIT LOC] GPS tắt, bỏ qua auto-center.');
+        return;
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+      );
+      final userLatLng = LatLng(pos.latitude, pos.longitude);
+
+      final inside = _isInsideBoundary(userLatLng);
+      debugPrint(
+        '[INIT LOC] user at ${pos.latitude}, ${pos.longitude}, inside=$inside',
+      );
+
+      if (inside) {
+        await _map!.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: userLatLng,
+              zoom: 18,
+            ),
+          ),
+        );
+      } else {
+        debugPrint('[INIT LOC] User ngoài ranh, giữ camera mặc định.');
+      }
+    } catch (e) {
+      debugPrint('[INIT LOC] ERROR: $e');
+    }
+  }
+
+  // ====== ĐỊNH VỊ VỊ TRÍ HIỆN TẠI (nút góc phải) ======
   Future<void> _goToMyLocation() async {
     debugPrint('================ [LOC] goToMyLocation START ================');
 
@@ -663,7 +928,6 @@ class _FullScreenMapState extends State<FullScreenMap> {
     setState(() => _locating = true);
 
     try {
-      // 1. Xin quyền location (whenInUse)
       var status = await Permission.locationWhenInUse.status;
       debugPrint('[LOC] permission BEFORE request = $status');
 
@@ -679,23 +943,20 @@ class _FullScreenMapState extends State<FullScreenMap> {
         return;
       }
 
-      // 2. Kiểm tra GPS có bật chưa
       if (!await _ensureLocationServiceOn()) {
-        // _ensureLocationServiceOn đã show snack rồi
         return;
       }
 
-      // 3. Lấy vị trí hiện tại bằng Geolocator
       debugPrint('[LOC] call Geolocator.getCurrentPosition');
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.best,
       );
       debugPrint(
-          '[LOC] current position = (${pos.latitude}, ${pos.longitude}), acc=${pos.accuracy}');
+        '[LOC] current position = (${pos.latitude}, ${pos.longitude}), acc=${pos.accuracy}',
+      );
 
       final target = LatLng(pos.latitude, pos.longitude);
 
-      // 4. Zoom camera về vị trí hiện tại
       debugPrint('[LOC] animateCamera to current position');
       await _map!.animateCamera(
         CameraUpdate.newCameraPosition(
@@ -713,8 +974,10 @@ class _FullScreenMapState extends State<FullScreenMap> {
     } on PlatformException catch (e) {
       debugPrint('[LOC] PlatformException: code=${e.code}, '
           'msg=${e.message}, details=${e.details}');
-      _snack('Lỗi định vị (native): '
-          '${e.message ?? (e.code.isNotEmpty ? e.code : 'Không rõ nguyên nhân')}');
+      _snack(
+        'Lỗi định vị (native): '
+        '${e.message ?? (e.code.isNotEmpty ? e.code : 'Không rõ nguyên nhân')}',
+      );
     } catch (e) {
       debugPrint('[LOC] UNKNOWN ERROR: $e');
       _snack('Lỗi định vị: $e');
@@ -722,6 +985,176 @@ class _FullScreenMapState extends State<FullScreenMap> {
       if (mounted) {
         setState(() => _locating = false);
       }
+    }
+  }
+
+  // ====== TÍNH TÂM GEOMETRY (lấy điểm đi tới của Ô) ======
+  LatLng? _geometryCentroid(Map geom) {
+    final type = geom['type'];
+    final coords = geom['coordinates'];
+    if (coords is! List) return null;
+
+    final points = <List<double>>[];
+
+    if (type == 'Polygon') {
+      if (coords.isEmpty) return null;
+      final outer = coords.first;
+      if (outer is List) {
+        for (final c in outer) {
+          if (c is List && c.length >= 2) {
+            final lon = (c[0] as num).toDouble();
+            final lat = (c[1] as num).toDouble();
+            points.add([lon, lat]);
+          }
+        }
+      }
+    } else if (type == 'MultiPolygon') {
+      if (coords.isEmpty) return null;
+      final firstPoly = coords.first;
+      if (firstPoly is List && firstPoly.isNotEmpty) {
+        final outer = firstPoly.first;
+        if (outer is List) {
+          for (final c in outer) {
+            if (c is List && c.length >= 2) {
+              final lon = (c[0] as num).toDouble();
+              final lat = (c[1] as num).toDouble();
+              points.add([lon, lat]);
+            }
+          }
+        }
+      }
+    } else if (type == 'LineString') {
+      for (final c in coords) {
+        if (c is List && c.length >= 2) {
+          final lon = (c[0] as num).toDouble();
+          final lat = (c[1] as num).toDouble();
+          points.add([lon, lat]);
+        }
+      }
+    } else if (type == 'MultiLineString') {
+      final firstLine = coords.isNotEmpty ? coords.first : null;
+      if (firstLine is List) {
+        for (final c in firstLine) {
+          if (c is List && c.length >= 2) {
+            final lon = (c[0] as num).toDouble();
+            final lat = (c[1] as num).toDouble();
+            points.add([lon, lat]);
+          }
+        }
+      }
+    } else if (type == 'Point') {
+      if (coords.length >= 2) {
+        final lon = (coords[0] as num).toDouble();
+        final lat = (coords[1] as num).toDouble();
+        points.add([lon, lat]);
+      }
+    } else if (type == 'MultiPoint') {
+      for (final c in coords) {
+        if (c is List && c.length >= 2) {
+          final lon = (c[0] as num).toDouble();
+          final lat = (c[1] as num).toDouble();
+          points.add([lon, lat]);
+        }
+      }
+    }
+
+    if (points.isEmpty) return null;
+
+    double sumX = 0;
+    double sumY = 0;
+    for (final p in points) {
+      sumX += p[0];
+      sumY += p[1];
+    }
+    final cx = sumX / points.length;
+    final cy = sumY / points.length;
+    return LatLng(cy, cx);
+  }
+
+  // ====== CHỈ ĐƯỜNG: từ vị trí hiện tại tới Ô đang chọn ======
+  Future<void> _onNavigatePressed() async {
+    if (_chiDuong == null) {
+      _snack('Bản đồ chưa sẵn sàng.');
+      return;
+    }
+    if (_khu == null || _hang == null || _o == null) {
+      _snack('Hãy chọn ô cần đến trước.');
+      return;
+    }
+
+    try {
+      // 1. Quyền + GPS
+      var status = await Permission.locationWhenInUse.status;
+      if (!status.isGranted) {
+        status = await Permission.locationWhenInUse.request();
+      }
+      if (!status.isGranted) {
+        _snack('Bạn cần cấp quyền vị trí để chỉ đường.');
+        return;
+      }
+
+      if (!await _ensureLocationServiceOn()) return;
+
+      // 2. Lấy vị trí hiện tại
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+      );
+      final start = LatLng(pos.latitude, pos.longitude);
+
+      // 3. Lấy geometry của Ô
+      final featO = await _fetchOGeom(_khu!, _hang!, _o!);
+      if (featO == null) {
+        _snack('Không lấy được hình học của ô.');
+        return;
+      }
+
+      Map? geom;
+      if (featO['type'] == 'Feature') {
+        if (featO['geometry'] is Map) {
+          geom = featO['geometry'] as Map;
+        }
+      } else if (featO['type'] == 'FeatureCollection' &&
+          featO['features'] is List &&
+          (featO['features'] as List).isNotEmpty) {
+        final f0 = (featO['features'] as List).first;
+        if (f0 is Map && f0['geometry'] is Map) {
+          geom = f0['geometry'] as Map;
+        }
+      } else if (featO['geometry'] is Map) {
+        geom = featO['geometry'] as Map;
+      }
+
+      if (geom == null) {
+        _snack('Không tìm thấy geometry của ô.');
+        return;
+      }
+
+      final dest = _geometryCentroid(geom);
+      if (dest == null) {
+        _snack('Không tính được tâm ô.');
+        return;
+      }
+
+      debugPrint('[NAV] start=$start, dest=$dest');
+      debugPrint(
+        '[NAV] boundary rootType=${_boundaryGeoJson is Map ? (_boundaryGeoJson['type']) : 'null'}',
+      );
+
+      // ✅ Chiến lược mới:
+      // 1. Luôn thử vẽ route nội bộ
+      // 2. Nếu lỗi → fallback Google Maps
+      try {
+        _snack('Đang tính đường nội bộ...');
+        await _chiDuong!.drawInternalRoute(start, dest);
+        debugPrint('[NAV] INTERNAL ROUTE OK');
+      } catch (e) {
+        debugPrint('[NAV] INTERNAL ROUTE ERROR: $e');
+        _snack('Không tính được đường nội bộ, mở Google Maps…');
+        await _chiDuong!.openGoogleMapDirection(start, dest);
+      }
+    } catch (e) {
+      debugPrint('[NAV] ERROR ngoài: $e');
+      _snack('Lỗi chỉ đường: $e');
     }
   }
 
@@ -851,17 +1284,19 @@ class _FullScreenMapState extends State<FullScreenMap> {
                                   );
                                 }
                               },
-                              icon:
-                                  const Icon(Icons.search, color: Colors.teal),
+                              icon: const Icon(
+                                Icons.search,
+                                color: Colors.teal,
+                              ),
                               tooltip: 'Tìm khu',
                             ),
                             IconButton(
                               onPressed: _onMicTap,
-                              icon:
-                                  Icon(_isRec ? Icons.stop_circle : Icons.mic),
-                              color: _isRec
-                                  ? Colors.redAccent
-                                  : Colors.black87,
+                              icon: Icon(
+                                _isRec ? Icons.stop_circle : Icons.mic,
+                              ),
+                              color:
+                                  _isRec ? Colors.redAccent : Colors.black87,
                               tooltip: _isRec
                                   ? 'Dừng & gửi AI'
                                   : 'Ghi chú giọng nói',
@@ -897,8 +1332,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
                                       value: e,
                                       child: Text(
                                         e,
-                                        style:
-                                            const TextStyle(fontSize: 14),
+                                        style: const TextStyle(fontSize: 14),
                                       ),
                                     ),
                                   )
@@ -931,14 +1365,13 @@ class _FullScreenMapState extends State<FullScreenMap> {
                                       value: e,
                                       child: Text(
                                         e,
-                                        style:
-                                            const TextStyle(fontSize: 14),
+                                        style: const TextStyle(fontSize: 14),
                                       ),
                                     ),
                                   )
                                   .toList(),
-                              onChanged:
-                                  _hangEnabled ? (v) => _onSelectHang(v!) : null,
+                              onChanged: _hangEnabled
+                                  ? (v) => _onSelectHang(v!) : null,
                               icon: const Icon(Icons.arrow_drop_down),
                             ),
                           ),
@@ -965,8 +1398,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
                                       value: e,
                                       child: Text(
                                         e,
-                                        style:
-                                            const TextStyle(fontSize: 14),
+                                        style: const TextStyle(fontSize: 14),
                                       ),
                                     ),
                                   )
@@ -1024,7 +1456,8 @@ class _FullScreenMapState extends State<FullScreenMap> {
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
                                             border: Border.all(
-                                                color: Colors.black12),
+                                              color: Colors.black12,
+                                            ),
                                             color: _hexToColor(color),
                                           ),
                                         ),
@@ -1033,7 +1466,8 @@ class _FullScreenMapState extends State<FullScreenMap> {
                                             name,
                                             overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(
-                                                fontSize: 14),
+                                              fontSize: 14,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -1044,7 +1478,8 @@ class _FullScreenMapState extends State<FullScreenMap> {
                               onChanged: _statusEnabled
                                   ? (v) async {
                                       setState(
-                                          () => _selectedStatusId = v);
+                                        () => _selectedStatusId = v,
+                                      );
                                       if (_khu != null && _hang != null) {
                                         final oData =
                                             await _getAllO(_khu!, _hang!);
@@ -1067,8 +1502,14 @@ class _FullScreenMapState extends State<FullScreenMap> {
                                           );
                                           _oMeta
                                             ..clear()
-                                            ..addEntries(metas.map((m) =>
-                                                MapEntry(m.fill, m.feature)));
+                                            ..addEntries(
+                                              metas.map(
+                                                (m) => MapEntry(
+                                                  m.fill,
+                                                  m.feature,
+                                                ),
+                                              ),
+                                            );
                                         }
                                       }
                                     }
@@ -1095,13 +1536,17 @@ class _FullScreenMapState extends State<FullScreenMap> {
               zoom: 17,
             ),
             compassEnabled: false,
-            myLocationEnabled:
-                true, // chỉ để hiện chấm xanh, không dùng để lấy vị trí
+            myLocationEnabled: true,
             onMapCreated: (c) {
               debugPrint('[MAP] onMapCreated');
               _map = c;
               fx.controller = c;
               _map!.onFillTapped.add(_handleFillTap);
+
+              _chiDuong = ChiDuongService(
+                baseUrl: _baseUrl,
+                mapController: c,
+              );
             },
             onStyleLoadedCallback: () async {
               debugPrint('[MAP] onStyleLoaded');
@@ -1121,11 +1566,18 @@ class _FullScreenMapState extends State<FullScreenMap> {
                 );
                 _khuMeta
                   ..clear()
-                  ..addEntries(
-                      metas.map((m) => MapEntry(m.fill, m.feature)));
+                  ..addEntries(metas.map((m) => MapEntry(m.fill, m.feature)));
               }
 
-              await _initStatusesFromPreset();
+              final boundary = await _getBoundary();
+              if (boundary != null) {
+                _boundaryGeoJson = boundary;
+                debugPrint('[BOUNDARY] Loaded from /ranh-gioi');
+              } else {
+                debugPrint('[BOUNDARY] /ranh-gioi trả về null');
+              }
+
+              await _initStatuses();
 
               final set = <String>{};
               if (allKhu is Map && allKhu["features"] is List) {
@@ -1138,26 +1590,41 @@ class _FullScreenMapState extends State<FullScreenMap> {
               }
               _khuList = set.toList()..sort();
               setState(() {});
+
+              await _tryCenterOnUserIfInside();
             },
           ),
 
-          // ====== NÚT ĐỊNH VỊ Ở GÓC DƯỚI PHẢI ======
+          // ====== NÚT CHỈ ĐƯỜNG + ĐỊNH VỊ Ở GÓC DƯỚI PHẢI ======
           Positioned(
             right: 16,
             bottom: 24,
-            child: FloatingActionButton(
-              heroTag: 'locate_me',
-              mini: true,
-              onPressed: _locating ? null : _goToMyLocation,
-              backgroundColor:
-                  _locating ? Colors.grey : Colors.white,
-              child: _locating
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.my_location, color: Colors.black87),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton(
+                  heroTag: 'navigate_to_o',
+                  mini: true,
+                  onPressed: _onNavigatePressed,
+                  backgroundColor: Colors.white,
+                  child: const Icon(Icons.directions, color: Colors.black87),
+                ),
+                const SizedBox(height: 12),
+                FloatingActionButton(
+                  heroTag: 'locate_me',
+                  mini: true,
+                  onPressed: _locating ? null : _goToMyLocation,
+                  backgroundColor:
+                      _locating ? Colors.grey : Colors.white,
+                  child: _locating
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.my_location, color: Colors.black87),
+                ),
+              ],
             ),
           ),
         ],

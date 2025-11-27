@@ -21,6 +21,8 @@ import { NhanVienModule } from './models/nhan-vien/nhan-vien.module';
 import { HopDongModule } from './models/hop-dong/hop-dong.module';
 import { ThongTinNguoiMatModule } from './models/thong-tin-nguoi-mat/thong-tin-nguoi-mat.module';
 import { HopDongChiTietModule } from './models/hop-dong-chi-tiet/hop-dong-chi-tiet.module';
+import { DuongXaModule } from './models/duong-xa/duong-xa.module';
+import { RanhGioiModule } from './models/ranh-gioi/ranh-gioi.module';
 
 @Module({
   imports: [
@@ -63,6 +65,8 @@ import { HopDongChiTietModule } from './models/hop-dong-chi-tiet/hop-dong-chi-ti
     HopDongModule,
     ThongTinNguoiMatModule,
     HopDongChiTietModule,
+    DuongXaModule,
+    RanhGioiModule,
   ],
   controllers: [AppController],
   providers: [AppService],
