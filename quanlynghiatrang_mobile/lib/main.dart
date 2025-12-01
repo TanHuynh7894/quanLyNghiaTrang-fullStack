@@ -63,11 +63,11 @@ class _FullScreenMapState extends State<FullScreenMap> {
 
   static const _KHU_FILL = '#9bf6ff';
   static const _KHU_OUTLINE = '#0e7a66';
-  static const _KHU_OPACITY = 0.35;
+  static const _KHU_OPACITY = 0.25;
 
   static const _HANG_FILL = '#caffbf';
   static const _HANG_OUTLINE = '#b58d00';
-  static const _HANG_OPACITY = 0.38;
+  static const _HANG_OPACITY = 0.25;
 
   static const _O_OUTLINE = '#8e1b12';
   static const _O_OPACITY = 1.0;
@@ -92,6 +92,13 @@ class _FullScreenMapState extends State<FullScreenMap> {
 
   // ===== SERVICE CHỈ ĐƯỜNG =====
   ChiDuongService? _chiDuong;
+
+  // Xoá route khi đổi khu / hàng
+  Future<void> _clearRouteIfAny() async {
+    if (_chiDuong != null) {
+      await _chiDuong!.clearRoute();
+    }
+  }
 
   // Layer theo Z-order: nền -> khu -> hàng -> ô
   final List<Fill> _nenFills = [];
@@ -185,19 +192,27 @@ class _FullScreenMapState extends State<FullScreenMap> {
       queryParameters: params,
     );
 
+    final sw = Stopwatch()..start();
     debugPrint('[API] GET $uri');
 
     try {
-      final res = await http.get(uri).timeout(const Duration(seconds: 15));
-      debugPrint('[API] RESP $path status=${res.statusCode}');
+      final res = await http.get(uri);
+
+      sw.stop();
+      debugPrint(
+        '[API] RESP $path status=${res.statusCode} time=${sw.elapsed}',
+      );
+
       if (res.statusCode == 200 && res.body.isNotEmpty) {
         return jsonDecode(res.body);
       } else {
-        _snack("HTTP ${res.statusCode}: ${res.body}");
+        _snack('HTTP ${res.statusCode}: ${res.body}');
       }
-    } catch (e) {
-      debugPrint('[API] ERROR $path: $e');
-      _snack("Lỗi API $path: $e");
+    } catch (e, st) {
+      sw.stop();
+      debugPrint('[API] ERROR $path after ${sw.elapsed}: $e');
+      debugPrint(st.toString());
+      _snack('Lỗi API $path: $e');
     }
     return null;
   }
@@ -243,12 +258,12 @@ class _FullScreenMapState extends State<FullScreenMap> {
         _statusList = data
             .whereType<Map>()
             .map((e) => {
-                  'id': e['ma_tinh_trang']?.toString() ?? '',
-                  'name': e['ten_tinh_trang']?.toString() ??
-                      e['ma_tinh_trang']?.toString() ??
-                      '',
-                  'color': e['color']?.toString() ?? '#cccccc',
-                })
+          'id': e['ma_tinh_trang']?.toString() ?? '',
+          'name': e['ten_tinh_trang']?.toString() ??
+              e['ma_tinh_trang']?.toString() ??
+              '',
+          'color': e['color']?.toString() ?? '#cccccc',
+        })
             .where((m) => m['id']!.isNotEmpty)
             .toList();
         debugPrint('[STATUS] loaded from API, count=${_statusList.length}');
@@ -261,10 +276,10 @@ class _FullScreenMapState extends State<FullScreenMap> {
       debugPrint('[STATUS] fallback to preset');
       _statusList = _STATUS_PRESET
           .map((e) => {
-                'id': e['ma_tinh_trang'] ?? '',
-                'name': e['ten_tinh_trang'] ?? (e['ma_tinh_trang'] ?? ''),
-                'color': e['color'] ?? '#cccccc',
-              })
+        'id': e['ma_tinh_trang'] ?? '',
+        'name': e['ten_tinh_trang'] ?? (e['ma_tinh_trang'] ?? ''),
+        'color': e['color'] ?? '#cccccc',
+      })
           .toList();
     }
 
@@ -345,7 +360,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
 
       if (!mounted) return;
       if (detail == null) {
-        _snack("Không lấy được chi tiết ô.");
+        _snack('Không lấy được chi tiết ô.');
         return;
       }
       ODetailSheet.show(context, detail, tenKhu, tenHang, tenO);
@@ -384,6 +399,8 @@ class _FullScreenMapState extends State<FullScreenMap> {
   // ===================== Logic chọn (dropdown & nội bộ) =====================
   Future<void> _onSelectKhu(String val) async {
     debugPrint('[SELECT] Khu = $val');
+
+    await _clearRouteIfAny(); // xoá đường cũ khi đổi khu
 
     _khu = val;
     _hang = _o = null;
@@ -425,11 +442,11 @@ class _FullScreenMapState extends State<FullScreenMap> {
       ..addEntries(metas.map((m) => MapEntry(m.fill, m.feature)));
 
     final set = <String>{};
-    if (hangData is Map && hangData["features"] is List) {
-      for (final f in hangData["features"]) {
-        final p = (f is Map) ? f["properties"] : null;
-        if (p is Map && p["ten_hang"] != null) {
-          set.add(p["ten_hang"].toString());
+    if (hangData is Map && hangData['features'] is List) {
+      for (final f in hangData['features']) {
+        final p = (f is Map) ? f['properties'] : null;
+        if (p is Map && p['ten_hang'] != null) {
+          set.add(p['ten_hang'].toString());
         }
       }
     }
@@ -439,6 +456,8 @@ class _FullScreenMapState extends State<FullScreenMap> {
 
   Future<void> _onSelectHang(String val) async {
     debugPrint('[SELECT] Hàng = $val');
+
+    await _clearRouteIfAny(); // xoá đường cũ khi đổi hàng
 
     _hang = val;
     _o = null;
@@ -463,11 +482,11 @@ class _FullScreenMapState extends State<FullScreenMap> {
 
     final oData = await _getAllO(_khu!, val);
     final set = <String>{};
-    if (oData is Map && oData["features"] is List) {
-      for (final f in oData["features"]) {
-        final p = (f is Map) ? f["properties"] : null;
-        if (p is Map && p["ten_o"] != null) {
-          set.add(p["ten_o"].toString());
+    if (oData is Map && oData['features'] is List) {
+      for (final f in oData['features']) {
+        final p = (f is Map) ? f['properties'] : null;
+        if (p is Map && p['ten_o'] != null) {
+          set.add(p['ten_o'].toString());
         }
       }
     }
@@ -476,7 +495,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
 
     if (oData != null) {
       final toDraw =
-          (_selectedStatusId == null) ? oData : _filterOByStatus(oData);
+      (_selectedStatusId == null) ? oData : _filterOByStatus(oData);
       final metas = await fx.renderLayerWithMeta(
         data: toDraw,
         targetLayer: _oFills,
@@ -687,7 +706,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
       final bool intersect = ((yi > y) != (yj > y)) &&
           (x <
               (xj - xi) * (y - yi) /
-                      ((yj - yi) == 0 ? 1e-9 : (yj - yi)) +
+                  ((yj - yi) == 0 ? 1e-9 : (yj - yi)) +
                   xi);
       if (intersect) inside = !inside;
     }
@@ -785,10 +804,10 @@ class _FullScreenMapState extends State<FullScreenMap> {
   }
 
   bool _pointInBBox(
-    LatLng p,
-    List<List<double>> coords, {
-    double paddingDeg = 0.0001,
-  }) {
+      LatLng p,
+      List<List<double>> coords, {
+        double paddingDeg = 0.0001,
+      }) {
     if (coords.isEmpty) return false;
     double minX = coords.first[0];
     double maxX = coords.first[0];
@@ -846,7 +865,6 @@ class _FullScreenMapState extends State<FullScreenMap> {
 
     if (rayCastHit) return true;
 
-    // Fallback: bounding box của toàn bộ toạ độ
     final allCoords = _collectAllCoords(root);
     final insideBox = _pointInBBox(point, allCoords, paddingDeg: 0.0002);
     if (insideBox) {
@@ -976,7 +994,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
           'msg=${e.message}, details=${e.details}');
       _snack(
         'Lỗi định vị (native): '
-        '${e.message ?? (e.code.isNotEmpty ? e.code : 'Không rõ nguyên nhân')}',
+            '${e.message ?? (e.code.isNotEmpty ? e.code : 'Không rõ nguyên nhân')}',
       );
     } catch (e) {
       debugPrint('[LOC] UNKNOWN ERROR: $e');
@@ -1083,7 +1101,6 @@ class _FullScreenMapState extends State<FullScreenMap> {
     }
 
     try {
-      // 1. Quyền + GPS
       var status = await Permission.locationWhenInUse.status;
       if (!status.isGranted) {
         status = await Permission.locationWhenInUse.request();
@@ -1095,13 +1112,11 @@ class _FullScreenMapState extends State<FullScreenMap> {
 
       if (!await _ensureLocationServiceOn()) return;
 
-      // 2. Lấy vị trí hiện tại
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.best,
       );
       final start = LatLng(pos.latitude, pos.longitude);
 
-      // 3. Lấy geometry của Ô
       final featO = await _fetchOGeom(_khu!, _hang!, _o!);
       if (featO == null) {
         _snack('Không lấy được hình học của ô.');
@@ -1140,9 +1155,6 @@ class _FullScreenMapState extends State<FullScreenMap> {
         '[NAV] boundary rootType=${_boundaryGeoJson is Map ? (_boundaryGeoJson['type']) : 'null'}',
       );
 
-      // ✅ Chiến lược mới:
-      // 1. Luôn thử vẽ route nội bộ
-      // 2. Nếu lỗi → fallback Google Maps
       try {
         _snack('Đang tính đường nội bộ...');
         await _chiDuong!.drawInternalRoute(start, dest);
@@ -1216,7 +1228,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
                       ),
                       child: IconButton(
                         icon: const Icon(Icons.menu, color: Colors.black87),
-                        onPressed: () => _snack("Menu pressed!"),
+                        onPressed: () => _snack('Menu pressed!'),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1257,7 +1269,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
                                   }
                                 },
                                 decoration: const InputDecoration(
-                                  hintText: "Nhập tên khu…",
+                                  hintText: 'Nhập tên khu…',
                                   hintStyle: TextStyle(color: Colors.black54),
                                   border: InputBorder.none,
                                   contentPadding: EdgeInsets.symmetric(
@@ -1292,11 +1304,9 @@ class _FullScreenMapState extends State<FullScreenMap> {
                             ),
                             IconButton(
                               onPressed: _onMicTap,
-                              icon: Icon(
-                                _isRec ? Icons.stop_circle : Icons.mic,
-                              ),
+                              icon: Icon(_isRec ? Icons.stop_circle : Icons.mic),
                               color:
-                                  _isRec ? Colors.redAccent : Colors.black87,
+                              _isRec ? Colors.redAccent : Colors.black87,
                               tooltip: _isRec
                                   ? 'Dừng & gửi AI'
                                   : 'Ghi chú giọng nói',
@@ -1323,22 +1333,22 @@ class _FullScreenMapState extends State<FullScreenMap> {
                               isExpanded: true,
                               value: _khu,
                               hint: const Text(
-                                "Chọn khu",
+                                'Chọn khu',
                                 style: TextStyle(fontSize: 14),
                               ),
                               items: _khuList
                                   .map(
                                     (e) => DropdownMenuItem<String?>(
-                                      value: e,
-                                      child: Text(
-                                        e,
-                                        style: const TextStyle(fontSize: 14),
-                                      ),
-                                    ),
-                                  )
+                                  value: e,
+                                  child: Text(
+                                    e,
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                ),
+                              )
                                   .toList(),
                               onChanged:
-                                  _khuEnabled ? (v) => _onSelectKhu(v!) : null,
+                              _khuEnabled ? (v) => _onSelectKhu(v!) : null,
                               icon: const Icon(Icons.arrow_drop_down),
                             ),
                           ),
@@ -1356,19 +1366,19 @@ class _FullScreenMapState extends State<FullScreenMap> {
                               isExpanded: true,
                               value: _hang,
                               hint: const Text(
-                                "Chọn hàng",
+                                'Chọn hàng',
                                 style: TextStyle(fontSize: 14),
                               ),
                               items: _hangList
                                   .map(
                                     (e) => DropdownMenuItem<String?>(
-                                      value: e,
-                                      child: Text(
-                                        e,
-                                        style: const TextStyle(fontSize: 14),
-                                      ),
-                                    ),
-                                  )
+                                  value: e,
+                                  child: Text(
+                                    e,
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                ),
+                              )
                                   .toList(),
                               onChanged: _hangEnabled
                                   ? (v) => _onSelectHang(v!) : null,
@@ -1389,22 +1399,22 @@ class _FullScreenMapState extends State<FullScreenMap> {
                               isExpanded: true,
                               value: _o,
                               hint: const Text(
-                                "Chọn ô",
+                                'Chọn ô',
                                 style: TextStyle(fontSize: 14),
                               ),
                               items: _oList
                                   .map(
                                     (e) => DropdownMenuItem<String?>(
-                                      value: e,
-                                      child: Text(
-                                        e,
-                                        style: const TextStyle(fontSize: 14),
-                                      ),
-                                    ),
-                                  )
+                                  value: e,
+                                  child: Text(
+                                    e,
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                ),
+                              )
                                   .toList(),
                               onChanged:
-                                  _oEnabled ? (v) => _onSelectO(v!) : null,
+                              _oEnabled ? (v) => _onSelectO(v!) : null,
                               icon: const Icon(Icons.arrow_drop_down),
                             ),
                           ),
@@ -1429,14 +1439,14 @@ class _FullScreenMapState extends State<FullScreenMap> {
                               isExpanded: true,
                               value: _selectedStatusId,
                               hint: const Text(
-                                "Lọc theo tình trạng mộ phần",
+                                'Lọc theo tình trạng mộ phần',
                                 style: TextStyle(fontSize: 14),
                               ),
                               items: [
                                 const DropdownMenuItem<String?>(
                                   value: null,
                                   child: Text(
-                                    "— Tất cả tình trạng —",
+                                    '— Tất cả tình trạng —',
                                     style: TextStyle(fontSize: 14),
                                   ),
                                 ),
@@ -1452,7 +1462,7 @@ class _FullScreenMapState extends State<FullScreenMap> {
                                           width: 12,
                                           height: 12,
                                           margin:
-                                              const EdgeInsets.only(right: 8),
+                                          const EdgeInsets.only(right: 8),
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
                                             border: Border.all(
@@ -1477,42 +1487,42 @@ class _FullScreenMapState extends State<FullScreenMap> {
                               ],
                               onChanged: _statusEnabled
                                   ? (v) async {
-                                      setState(
-                                        () => _selectedStatusId = v,
+                                setState(
+                                      () => _selectedStatusId = v,
+                                );
+                                if (_khu != null && _hang != null) {
+                                  final oData =
+                                  await _getAllO(_khu!, _hang!);
+                                  if (oData != null) {
+                                    final toDraw =
+                                    (_selectedStatusId == null)
+                                        ? oData
+                                        : _filterOByStatus(oData);
+                                    final metas =
+                                    await fx.renderLayerWithMeta(
+                                      data: toDraw,
+                                      targetLayer: _oFills,
+                                      outline: _O_OUTLINE,
+                                      opacity: _O_OPACITY,
+                                      clearBefore: true,
+                                      fitCamera: false,
+                                      colorResolver: (f) =>
+                                          StatusColorService
+                                              .resolveFromFeature(f),
+                                    );
+                                    _oMeta
+                                      ..clear()
+                                      ..addEntries(
+                                        metas.map(
+                                              (m) => MapEntry(
+                                            m.fill,
+                                            m.feature,
+                                          ),
+                                        ),
                                       );
-                                      if (_khu != null && _hang != null) {
-                                        final oData =
-                                            await _getAllO(_khu!, _hang!);
-                                        if (oData != null) {
-                                          final toDraw =
-                                              (_selectedStatusId == null)
-                                                  ? oData
-                                                  : _filterOByStatus(oData);
-                                          final metas =
-                                              await fx.renderLayerWithMeta(
-                                            data: toDraw,
-                                            targetLayer: _oFills,
-                                            outline: _O_OUTLINE,
-                                            opacity: _O_OPACITY,
-                                            clearBefore: true,
-                                            fitCamera: false,
-                                            colorResolver: (f) =>
-                                                StatusColorService
-                                                    .resolveFromFeature(f),
-                                          );
-                                          _oMeta
-                                            ..clear()
-                                            ..addEntries(
-                                              metas.map(
-                                                (m) => MapEntry(
-                                                  m.fill,
-                                                  m.feature,
-                                                ),
-                                              ),
-                                            );
-                                        }
-                                      }
-                                    }
+                                  }
+                                }
+                              }
                                   : null,
                               icon: const Icon(Icons.arrow_drop_down),
                             ),
@@ -1580,11 +1590,11 @@ class _FullScreenMapState extends State<FullScreenMap> {
               await _initStatuses();
 
               final set = <String>{};
-              if (allKhu is Map && allKhu["features"] is List) {
-                for (final f in allKhu["features"]) {
-                  final p = (f is Map) ? f["properties"] : null;
-                  if (p is Map && p["ten_khu"] != null) {
-                    set.add(p["ten_khu"].toString());
+              if (allKhu is Map && allKhu['features'] is List) {
+                for (final f in allKhu['features']) {
+                  final p = (f is Map) ? f['properties'] : null;
+                  if (p is Map && p['ten_khu'] != null) {
+                    set.add(p['ten_khu'].toString());
                   }
                 }
               }
@@ -1615,13 +1625,13 @@ class _FullScreenMapState extends State<FullScreenMap> {
                   mini: true,
                   onPressed: _locating ? null : _goToMyLocation,
                   backgroundColor:
-                      _locating ? Colors.grey : Colors.white,
+                  _locating ? Colors.grey : Colors.white,
                   child: _locating
                       ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                       : const Icon(Icons.my_location, color: Colors.black87),
                 ),
               ],
